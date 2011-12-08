@@ -6,12 +6,12 @@ def main():
 
     setup(name="cndarray",
           version="2011.1",
-          description="A preprocessor for C with multidimensional arrays",
+          description="A preprocessor that gives C multidimensional arrays",
           #long_description="",
           author=u"Andreas Kloeckner",
           author_email="inform@tiker.net",
           license = "MIT",
-          url="http://mathema.tician.de/software/carray",
+          url="http://mathema.tician.de/software/cndarray",
           classifiers=[
 
               ],
