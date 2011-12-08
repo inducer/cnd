@@ -92,4 +92,4 @@ Future Features
 Author
 ------
 
-Andreas Klöckner <inform@tiker.net>
+Andreas Klöckner <inform@tiker.net>, based on discussions with Zydrunas Gimbutas.
