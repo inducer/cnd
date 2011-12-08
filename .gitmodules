@@ -1,0 +1,6 @@
+[submodule "pycparser"]
+	path = pycparser
+	url = git://github.com/inducer/pycparser-git.git
+[submodule "ply"]
+	path = ply
+	url = git://github.com/inducer/ply-git.git

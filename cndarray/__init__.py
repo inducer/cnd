@@ -6,8 +6,6 @@ from pycparser import c_ast
 from cndarray.generator import CGenerator as CGeneratorBase
 import sys
 
-from pytools import Record
-
 
 
 
@@ -28,7 +26,7 @@ class CNdArrayLexer(CLexerBase):
 
 
 
-class SingleDim(Record):
+class SingleDim(object):
     def __init__(self, layout, start, end, stride, leading_dim):
         self.end = end
         self.stride = stride
@@ -51,7 +49,7 @@ class SingleDim(Record):
 
         self.leading_dim = leading_dim
 
-class DimensionDecl(Record):
+class DimensionDecl(object):
     def __init__(self, name, layout, dims, coord):
         self.name = name
 
@@ -172,6 +170,7 @@ class CNdArrayParser(CParserBase):
                      | dim_start_end
                      | dim_end
                      | dim_stride
+                     | dim_start
                      | dim_start_end_stride_lead
                      | dim_start_end_lead
                      | dim_end_lead
@@ -199,6 +198,11 @@ class CNdArrayParser(CParserBase):
         """ dim_stride : COLON assignment_expression
         """
         p[0] = (None, None, p[1], None)
+
+    def p_dim_start(self, p):
+        """ dim_start : assignment_expression COLON
+        """
+        p[0] = (p[1], None, None, None)
 
     def p_dim_start_end_stride_lead(self, p):
         """ dim_start_end_stride_lead : assignment_expression COLON assignment_expression COLON assignment_expression COLON assignment_expression

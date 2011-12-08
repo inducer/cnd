@@ -17,9 +17,9 @@ def main():
               ],
           zip_safe=False,
 
-          install_requires=[ "pycparser", "ply", "pytools"],
+          install_requires=[ "pycparser", "ply"],
 
-          scripts=["bin/cnd"],
+          scripts=["bin/cnd", "bin/cndcc"],
           packages=["cndarray"]
          )
 

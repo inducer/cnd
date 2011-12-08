@@ -88,6 +88,7 @@ Future Features
 * Syntax for stack and heap allocation.
 * Run a C preprocessor on the input.
 * Act as a frontend to the C compiler.
+* Bounds checking.
 
 Author
 ------

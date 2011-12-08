@@ -1,5 +1,22 @@
 #! /usr/bin/env python
 
-if __name__ == "__main__":
+try:
     import cndarray
-    cndarray.run_standalone()
+except ImportError:
+    import sys
+
+    from os.path import dirname, join
+    from os import getcwd
+    dist_dir = dirname(dirname(sys.argv[0]))
+    if not dist_dir:
+        dist_dir = dirname(getcwd())
+
+    sys.path.extend([
+            dist_dir,
+            join(dist_dir, "pycparser"),
+            join(dist_dir, "ply"),
+            ])
+
+    import cndarray
+
+cndarray.run_standalone()
