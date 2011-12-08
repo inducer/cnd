@@ -7,7 +7,7 @@ def main():
     setup(name="cndarray",
           version="2011.1",
           description="A preprocessor that gives C multidimensional arrays",
-          #long_description="",
+          long_description=open("README.rst", "rt").read(),
           author=u"Andreas Kloeckner",
           author_email="inform@tiker.net",
           license = "MIT",
