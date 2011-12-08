@@ -40,11 +40,12 @@ Each axis specification in a `dimension` statement has the following form::
 
     start:end:stride:leading_dimension
 
-`start` may be omitted. `end` and `stride` may also be omitted, but in this
-case, the colons remain in place, such that the axis specification `:5` simply
-specifies a stride of 5. The stride simply acts as a multiplier on the index.
-No plausibility checking whatsoever is done on the dimension statement.  You
-may shoot yourself in the foot any way you like.
+`start` may be omitted. `end` and `stride` may also be omitted, but if entries
+afte them are to be specified, their colons must remain in place. For example,
+the axis specification `:5` simply specifies a stride of 5. The stride simply
+acts as a multiplier on the index.  No plausibility checking whatsoever is done
+on the dimension statement.  You may shoot yourself in the foot any way you
+like.
 
 If the layout is given as `"c"` or not given at all, the following things are true:
 
@@ -87,3 +88,8 @@ Future Features
 * Syntax for stack and heap allocation.
 * Run a C preprocessor on the input.
 * Act as a frontend to the C compiler.
+
+Author
+------
+
+Andreas Klöckner <inform@tiker.net>
