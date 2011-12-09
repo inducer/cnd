@@ -82,29 +82,28 @@ You may obtain CnD by downloading the tarball from the `package index
 <http://github.com/inducer/cnd>`_::
 
     $ git clone git://github.com/inducer/cnd.git
+    $ cd cnd
     $ git submodule init
     $ git submodule update
 
 To use CnD, simply add `distribution-dir/bin` to your `PATH`.
 
-Then simply run::
+To get started, simply run (from within the `cnd` root)::
 
-    $ cnd source.c
+    $ cd examples
+    $ ../bin/cndcc gcc -std=c99 basic.c
+    $ ./a.out
 
-Note that `cnd` expects preprocessed source. You may pass the option `-E`
-to have `cnd` run the preprocessor on your source for you. Run::
+If you would like more fine-grained control over the translation process, the
+`cnd` command exposes just the source-to-source translation.  Note that `cnd`
+expects preprocessed source. You may pass the option `-E` to have `cnd` run the
+preprocessor on your source for you. Run::
 
     $ cnd -h
 
 to get full help on the command line interface. You may set the `CND_CPP`
 environment variable to the preprocessor you wish to use.
 
-You may also run::
-
-    $ cndcc gcc source.c
-
-in which case cnd will run your source files through the preprocessor, do its
-source-to-source translation, and then run the compiler you specified.
 
 Future Features
 ---------------
