@@ -134,7 +134,7 @@ class CNdArrayParser(CParserBase):
         self.cparser = ply.yacc.yacc(
             module=self,
             start='translation_unit',
-            debug=yacc_debug)
+            debug=yacc_debug, write_tables=False)
 
     def parse(self, text, filename='', debuglevel=0,
             initial_type_symbols=set()):
