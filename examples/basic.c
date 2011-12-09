@@ -3,6 +3,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#if __STDC_VERSION__ < 199901L
+#error This is a C99 file. Use '-std=c99' for gcc or a similar flag for other compilers.
+#error (If running with just 'cnd' and not 'cndcc', pass --cpp="cpp -std=c99".)
+#endif
+
 void sgemm(float *a, float *b, float *c, int n)
 {
   dimension "fortran" a[n, n];

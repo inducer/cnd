@@ -633,9 +633,15 @@ def run_as_compiler_frontend():
             raise RuntimeError("-o<NAME> is required with -c")
 
         from subprocess import call
-        retcode = call([compiler] + new_argv)
+        try:
+            retcode = call([compiler] + new_argv)
+        except:
+            print>>sys.stderr, "%s: compiler execution failed. (Note: compiler " \
+                    "command must be the first argument--used '%s')" % (sys.argv[0], compiler)
+            sys.exit(1)
+        else:
+            sys.exit(retcode)
 
-        sys.exit(retcode)
     finally:
         for tempf in temp_files:
             os.unlink(tempf)
