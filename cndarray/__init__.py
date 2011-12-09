@@ -3,7 +3,7 @@ import ply
 from pycparser.c_lexer import CLexer as CLexerBase
 from pycparser.c_parser import CParser as CParserBase
 from pycparser import c_ast
-from cndarray.generator import CGenerator as CGeneratorBase
+from pycparser.c_generator import CGenerator as CGeneratorBase
 import sys
 
 
@@ -36,7 +36,7 @@ class SingleDim(object):
 
         self.start = start
 
-        if leading_dim is None:
+        if leading_dim is None and end is not None:
             if start is None:
                 leading_dim = end
             else:
@@ -49,7 +49,22 @@ class SingleDim(object):
 
         self.leading_dim = leading_dim
 
-class DimensionDecl(object):
+    def __repr__(self):
+        generator = CGenerator()
+
+        def stringify(x):
+            if x is None:
+                return "None"
+            else:
+                return generator.visit(x)
+
+        return "Axis(start=%s, end=%s, stride=%s, leading_dim=%s)" % (
+                stringify(self.start),
+                stringify(self.end),
+                stringify(self.stride),
+                stringify(self.leading_dim))
+
+class DimensionDecl(c_ast.Node):
     def __init__(self, name, layout, dims, coord):
         self.name = name
 
@@ -61,25 +76,21 @@ class DimensionDecl(object):
     def children(self):
         return ()
 
+    attr_names = ("name", "layout", "dims")
+
 
 
 
 
 class CNdArrayParser(CParserBase):
     def __init__(self,
-            lex_optimize=True,
-            lextab='cndarray.lextab',
-            yacc_optimize=True,
-            yacctab='cndarray.yacctab',
             yacc_debug=False):
 
         self.clex = CNdArrayLexer(
             error_func=self._lex_error_func,
             type_lookup_func=self._lex_type_lookup_func)
 
-        self.clex.build(
-            optimize=lex_optimize,
-            lextab=lextab)
+        self.clex.build()
         self.tokens = self.clex.tokens
 
         rules_with_opt = [
@@ -104,9 +115,7 @@ class CNdArrayParser(CParserBase):
         self.cparser = ply.yacc.yacc(
             module=self,
             start='translation_unit',
-            debug=yacc_debug,
-            optimize=yacc_optimize,
-            tabmodule=yacctab)
+            debug=yacc_debug)
 
     def parse(self, text, filename='', debuglevel=0,
             initial_type_symbols=set()):
@@ -115,11 +124,12 @@ class CNdArrayParser(CParserBase):
 
         # _scope_stack[-1] is the current (topmost) scope.
 
-        self._scope_stack = [initial_type_symbols.copy()]
+        self._scope_stack = [set(initial_type_symbols)]
         if not text or text.isspace():
             return c_ast.FileAST([])
         else:
             return self.cparser.parse(text, lexer=self.clex, debug=debuglevel)
+
 
     def p_declaration(self, p):
         """ declaration : decl_body SEMI
@@ -147,12 +157,9 @@ class CNdArrayParser(CParserBase):
 
     def p_dim_layout_opt(self, p):
         """ dim_layout_opt : STRING_LITERAL
-                           |
+                           | empty
         """
-        if len(p) == 2:
-            p[0] = p[1]
-        else:
-            p[0] = None
+        p[0] = p[1]
 
     def p_dim_spec_mult(self, p):
         """ dim_spec_mult : dim_spec
@@ -165,64 +172,31 @@ class CNdArrayParser(CParserBase):
             p[1].append(p[3])
             p[0] = p[1]
 
-    def p_dim_spec(self, p):
-        """ dim_spec : dim_start_end_stride
-                     | dim_start_end
-                     | dim_end
-                     | dim_stride
-                     | dim_start
-                     | dim_start_end_stride_lead
-                     | dim_start_end_lead
-                     | dim_end_lead
-                     | dim_stride_lead
-
+    def p_bound_expr_opt(self, p):
+        """ bound_expr_opt : assignment_expression
+                           | empty
         """
         p[0] = p[1]
 
-    def p_dim_start_end_stride(self, p):
-        """ dim_start_end_stride : assignment_expression COLON assignment_expression COLON assignment_expression
-        """
-        p[0] = (p[1], p[3], p[5], None)
-
-    def p_dim_start_end(self, p):
-        """ dim_start_end : assignment_expression COLON assignment_expression
-        """
-        p[0] = (p[1], p[3], None, None)
-
-    def p_dim_end(self, p):
-        """ dim_end : assignment_expression
+    def p_dim_spec_1(self, p):
+        """ dim_spec : assignment_expression
         """
         p[0] = (None, p[1], None, None)
 
-    def p_dim_stride(self, p):
-        """ dim_stride : COLON assignment_expression
+    def p_dim_spec_2(self, p):
+        """ dim_spec : bound_expr_opt COLON bound_expr_opt
         """
-        p[0] = (None, None, p[1], None)
+        p[0] = (p[1], p[3], None, None)
 
-    def p_dim_start(self, p):
-        """ dim_start : assignment_expression COLON
+    def p_dim_spec_3(self, p):
+        """ dim_spec : bound_expr_opt COLON bound_expr_opt COLON bound_expr_opt
         """
-        p[0] = (p[1], None, None, None)
+        p[0] = (p[1], p[3], p[5], None)
 
-    def p_dim_start_end_stride_lead(self, p):
-        """ dim_start_end_stride_lead : assignment_expression COLON assignment_expression COLON assignment_expression COLON assignment_expression
+    def p_dim_spec_4(self, p):
+        """ dim_spec : bound_expr_opt COLON bound_expr_opt COLON bound_expr_opt COLON bound_expr_opt
         """
         p[0] = (p[1], p[3], p[5], p[7])
-
-    def p_dim_start_end_lead(self, p):
-        """ dim_start_end_lead : assignment_expression COLON assignment_expression COLON COLON assignment_expression
-        """
-        p[0] = (p[1], p[3], None, p[5])
-
-    def p_dim_end_lead(self, p):
-        """ dim_end_lead : assignment_expression COLON COLON assignment_expression
-        """
-        p[0] = (None, p[1], None, p[3])
-
-    def p_dim_stride_lead(self, p):
-        """ dim_stride_lead : COLON assignment_expression COLON assignment_expression
-        """
-        p[0] = (None, None, p[1], p[3])
 
 
 
@@ -272,17 +246,22 @@ class CGenerator(CGeneratorBase):
                         "array reference to '%s' at %s"
                         % (n.name.name, n.coord))
 
+            axis_numbers = range(len(indices))
 
             if dim_decl.layout == "c":
-                dim_it = zip(indices, dim_decl.dims)
+                dim_it = zip(indices, dim_decl.dims, axis_numbers)
             elif dim_decl.layout == "fortran":
-                dim_it = zip(indices[::-1], dim_decl.dims[::-1])
+                dim_it = zip(indices[::-1], dim_decl.dims[::-1], axis_numbers[::-1])
             else:
                 raise RuntimeError("invalid  array layout '%s'" % dim_decl.layout)
 
             access = None
-            for idx, dim in dim_it:
+            for idx, dim, axis in dim_it:
                 if access is not None:
+                    if dim.leading_dim is None:
+                        raise RuntimeError("missing information on length of "
+                                "axis %d of array '%s', declared at %s"
+                                % (axis, n.name.name, dim_decl.coord))
                     access = c_ast.BinaryOp("*", access, dim.leading_dim)
 
                 if dim.stride is not None:
@@ -305,6 +284,113 @@ class CGenerator(CGeneratorBase):
 
 
 
+
+class ExecError(RuntimeError):
+    pass
+
+def call_capture_output(cmdline, cwd=None, error_on_nonzero=True):
+    """
+    :returns: a tuple (return code, stdout_data, stderr_data).
+    """
+    from subprocess import Popen, PIPE
+    try:
+        popen = Popen(cmdline, cwd=cwd, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+        stdout_data, stderr_data = popen.communicate()
+        if error_on_nonzero and popen.returncode:
+            raise ExecError("status %d invoking '%s': %s"
+                    % (popen.returncode, " ".join(cmdline), stderr_data))
+        return popen.returncode, stdout_data, stderr_data
+    except OSError, e:
+        raise ExecError("error invoking '%s': %s"
+                % ( " ".join(cmdline), e))
+
+
+
+
+class CompileError(RuntimeError):
+    def __init__(self, msg, command_line, stdout=None, stderr=None):
+        self.msg = msg
+        self.command_line = command_line
+        self.stdout = stdout
+        self.stderr = stderr
+
+    def __str__(self):
+        result = self.msg
+        if self.command_line:
+            try:
+                result += "\n[command: %s]" % (" ".join(self.command_line))
+            except Exception, e:
+                print e
+        if self.stdout:
+            result += "\n[stdout:\n%s]" % self.stdout
+        if self.stderr:
+            result += "\n[stderr:\n%s]" % self.stderr
+
+        return result
+
+
+
+
+def write_temp_file(contents, suffix):
+    from tempfile import mkstemp
+    handle, path = mkstemp(suffix='.c')
+
+    import os
+
+    try:
+        outf = open(path, 'w')
+        try:
+            outf.write(contents)
+        finally:
+            outf.close()
+    finally:
+        os.close(handle)
+
+    return path
+
+def preprocess_source(source, cpp, options):
+    import os
+    if cpp is None:
+        cpp = os.environ.get("CND_CPP")
+    if cpp is None:
+        cpp = os.environ.get("CPP")
+    if cpp is None:
+        cpp = "cpp"
+
+    cpp = cpp.split()
+
+    from tempfile import mkstemp
+    handle, source_path = mkstemp(suffix='.c')
+
+    import os
+
+    source_path = write_temp_file(source, ".c")
+    try:
+        cmdline = cpp + options + [source_path]
+
+        result, stdout, stderr = call_capture_output(cmdline, error_on_nonzero=False)
+
+        if result != 0:
+            raise CompileError("preprocessing of %s failed" % source_path,
+                               cmdline, stderr=stderr)
+    finally:
+        os.unlink(source_path)
+
+    return stdout
+
+
+
+
+INITIAL_TYPE_SYMBOLS = ["__builtin_va_list"]
+GCC_DEFINES = [
+        "#define __const const",
+        "#define __restrict restrict",
+        "#define __extension__ /*empty*/", # FIXME
+        ]
+
+
+
+
 def run_standalone():
     from optparse import OptionParser
 
@@ -318,8 +404,8 @@ def run_standalone():
             help="C macro definition, passed on to C preprocessor",
             metavar="NAME[=VALUE]")
     parser.add_option("--cpp",
-            help="C preprocessor to use", metavar="COMMAND",
-            default="cpp")
+            help="C preprocessor to use", metavar="COMMAND")
+    parser.add_option("--ast", action="store_true", help="print syntax tree, quit")
 
     (options, args) = parser.parse_args()
 
@@ -331,9 +417,33 @@ def run_standalone():
 
     src = open(in_file, "rt").read()
 
+    extra_lines = GCC_DEFINES + [
+        "# 1 \"%s\"" % in_file,
+        ]
+    src =  "\n".join(extra_lines) + "\n" + src
+
+    if options.preprocess:
+        cpp_options = []
+        #cpp_options = ["-P"]
+        if options.include:
+            for inc_dir in options.include:
+                cpp_options.extend(["-I", inc_dir])
+
+        if options.define:
+            for define in options.define:
+                cpp_options.extend(["-D", define])
+
+        src = preprocess_source(src, options.cpp, cpp_options)
+
+    #print "preprocessed source in ", write_temp_file(src, ".c")
+
     parser = CNdArrayParser()
     ast = parser.parse(src, filename=in_file,
-            initial_type_symbols=set(["dimension", "fdimension"]))
+            initial_type_symbols=INITIAL_TYPE_SYMBOLS)
+    if options.ast:
+        ast.show()
+        return
+
     generator = CGenerator()
 
     if options.output is not None:
@@ -351,4 +461,66 @@ def run_standalone():
 
 
 def run_as_compiler_frontend():
-    raise NotImplementedError
+    import sys
+    import os
+
+    argv = sys.argv[2:]
+    compiler = sys.argv[1]
+
+    cpp_options = []
+
+    new_argv = []
+
+    temp_files = []
+
+    to_object_file = False
+    seen_dash_o = False
+
+    try:
+        for arg in argv:
+            if arg.endswith(".c") and not arg.startswith("-"):
+                src = open(arg, "rt").read()
+
+                extra_lines = GCC_DEFINES + [
+                    "# 1 \"%s\"" % arg,
+                    ]
+                src =  "\n".join(extra_lines) + "\n" + src
+
+                #cpp_options.append("-P")
+
+                src = preprocess_source(src, "cpp", cpp_options)
+
+                #print "preprocessed source in ", write_temp_file(src, ".c")
+
+                parser = CNdArrayParser()
+                ast = parser.parse(src, filename=arg,
+                        initial_type_symbols=INITIAL_TYPE_SYMBOLS)
+
+                generator = CGenerator()
+
+                gen_src_file = write_temp_file(generator.visit(ast), ".c")
+                new_argv.append(gen_src_file)
+                temp_files.append(gen_src_file)
+
+            elif arg.startswith("-I") or arg.startswith("-D"):
+                cpp_options.append(arg)
+                new_argv.append(arg)
+            elif arg == "-c":
+                to_object_file = True
+                new_argv.append(arg)
+            elif arg.startswith("-o"):
+                seen_dash_o = True
+                new_argv.append(arg)
+            else:
+                new_argv.append(arg)
+
+        if to_object_file and not seen_dash_o:
+            raise RuntimeError("-o<NAME> is required with -c")
+
+        from subprocess import call
+        retcode = call([compiler] + new_argv)
+
+        sys.exit(retcode)
+    finally:
+        for tempf in temp_files:
+            os.unlink(tempf)

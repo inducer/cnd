@@ -1,5 +1,8 @@
 #! /usr/bin/env python
 
+# This code is duplicated in bin/cnd and bin/cndcc.
+# Make sure to change both copies.
+
 try:
     import cndarray
 except ImportError:
@@ -13,8 +16,8 @@ except ImportError:
 
     sys.path.extend([
             dist_dir,
-            join(dist_dir, "pycparser"),
-            join(dist_dir, "ply"),
+            join(dist_dir, "pycparser-shipped"),
+            join(dist_dir, "ply-shipped"),
             ])
 
     import cndarray

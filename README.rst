@@ -59,36 +59,42 @@ If the layout is given as `"fortran"`, the following things are true:
 * The `end` index is taken to be inclusive, if specified.
 * The `start` index defaults to 1.
 
-Installation
-------------
+Installation / Usage
+--------------------
 
-In the source tree, simply run::
+You may obtain cndarray from `github <http://github.com/inducer/cndarray>`_::
 
-    $ python setup.py install
+    $ git clone git://github.com/inducer/cndarray.git
+    $ git sumodule init
+    $ git sumodule update
 
-Note that you may either need to be root or use 
-`virtualenv <http://pypi.python.org/pypi/virtualenv>`_
-for this to work.
+To use cndarray, simply add `distribution-dir/bin` to your `PATH`.
 
-Cndarray is not completely done and a few details are still subject to change.
-For now, you can get it from `github <http://github.com/inducer/cndarray>`_.
-
-Usage
------
-
-Once installed, simply run::
+Then simply run::
 
     $ cnd source.c
 
-Observe that Cndarray expects preprocessed source, for now.
+Note that Cndarray expects preprocessed source. You may pass the option `-E`
+to have `cnd` run the preprocessor on your source for you. Run::
+
+    $ cnd -h
+
+to get full help on the command line interface. You may set the `CND_CPP`
+environment variable to the preprocessor you wish to use.
+
+You may also run::
+
+    $ cndcc gcc source.c
+
+in which case cnd will run your source files through the preprocessor, do its
+source-to-source translation, and then run the compiler you specified.
 
 Future Features
 ---------------
 
-* Syntax for stack and heap allocation.
-* Run a C preprocessor on the input.
-* Act as a frontend to the C compiler.
 * Bounds checking.
+* Generate #line directives.
+* [lu]boundof(a, axis), leadof(a, axis), strideof(a, axis)
 
 Author
 ------

@@ -1,4 +1,8 @@
-void dgemm(float *a, float *b, float *c, int n)
+#include <complex.h>
+#include <tgmath.h>
+#include <stdio.h>
+
+void sgemm(float *a, float *b, float *c, int n)
 {
   dimension "fortran" a[n, n];
   dimension "fortran" b[n, n];
@@ -16,13 +20,25 @@ void dgemm(float *a, float *b, float *c, int n)
     }
 }
 
-void mpole(double *mpole, int n)
+#ifdef YO
+int DUDE;
+#endif
+
+void mpole(complex double *mpole, int n)
 {
-  dimension "fortran" mpole[0:n, -n:];
+  dimension "fortran" mpole[0:n, -n:n];
+
+  unsigned long int x = 0;
 
   for (int i = 0; i <= n; ++i)
     for (int j = -n; j <= n; ++j)
     {
       printf("%f\n", mpole[i ,j]);
     }
+}
+
+int main()
+{
+  complex double *mpole;
+  dimension "fortran" mpole[0:n, -n:n];
 }
