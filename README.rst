@@ -34,7 +34,8 @@ into this::
       }
     }
 
-It understands all of C99.
+It understands all of C99. You may also take a look at a `more complete example
+<https://github.com/inducer/cnd/blob/master/examples/basic.c>`_.
 
 Each axis specification in a `dimension` statement has the following form::
 
