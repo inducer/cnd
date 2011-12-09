@@ -76,7 +76,8 @@ plain integer).
 Installation / Usage
 --------------------
 
-You may obtain CnD by downloading the tarball below, or from `github
+You may obtain CnD by downloading the tarball from the `package index
+<http://pypi.python.org/pypi/cnd>`_, or from `github
 <http://github.com/inducer/cnd>`_::
 
     $ git clone git://github.com/inducer/cnd.git
