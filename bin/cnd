@@ -4,7 +4,7 @@
 # Make sure to change both copies.
 
 try:
-    import cndarray
+    import cnd
 except ImportError:
     import sys
 
@@ -20,6 +20,6 @@ except ImportError:
             join(dist_dir, "ply-shipped"),
             ])
 
-    import cndarray
+    import cnd
 
-cndarray.run_standalone()
+cnd.run_standalone()

@@ -4,3 +4,4 @@
 *.egg-info
 lextab.py
 yacctab.py
+dist

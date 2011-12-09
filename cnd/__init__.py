@@ -9,6 +9,25 @@ import sys
 
 
 
+
+CND_HELPERS = """
+#define CND_ALLOC_HEAP(type, name) \
+  name = malloc(nitemsof(name)*sizeof(type));
+
+#define CND_DECL_ALLOC_HEAP(type, name) \
+  type *name; \
+  CND_ALLOC_HEAP(type, name)
+
+#define CND_DECL_ALLOC_STACK(type, name) \
+  type name[nitemsof(name)];
+
+#define CND_FOR_AXIS(it_var, name, ax_index) \
+  for (long it_var = lboundof(name, ax_index); it_var < puboundof(name, ax_index); ++it_var)
+"""
+
+
+
+
 cnd_keywords = ("dimension",)
 class CNdArrayLexer(CLexerBase):
 
@@ -281,6 +300,100 @@ class CGenerator(CGeneratorBase):
             arrref = self._parenthesize_unless_simple(n.name)
             return arrref + '[' + self.visit(n.subscript) + ']'
 
+    def visit_FuncCall(self, n):
+        if isinstance(n.name, c_ast.ID):
+            name = n.name.name
+            args = n.args.exprs
+
+            def check_arg_count(needed):
+                if len(args) != needed:
+                    raise RuntimeError("%s takes exactly %d argument(s), "
+                            "%d given at %s"
+                            % (name, needed, len(args), n.coord))
+
+            def get_dim_decl():
+                if not isinstance(args[0], c_ast.ID):
+                    raise RuntimeError("may not call '%s' "
+                            "on undimensioned expression '%s' at %s"
+                            % (name, args[0], n.coord))
+
+                dim_decl = self.dim_decl_stack[-1].get(args[0].name)
+
+                if dim_decl is None:
+                    raise RuntimeError("no dimension statement found for '%s' at %s"
+                            % (args[0].name, n.coord))
+
+                return dim_decl
+
+            def is_an_int(s):
+                try:
+                    int(s)
+                except TypeError:
+                    return False
+                else:
+                    return True
+
+            if name == "rankof":
+                check_arg_count(1)
+                dim_decl = get_dim_decl()
+                return str(len(dim_decl.dims))
+
+            if name == "nitemsof":
+                check_arg_count(1)
+                dim_decl = get_dim_decl()
+                result = None
+                for i, axis in enumerate(dim_decl.dims):
+                    if axis.leading_dim is None:
+                        raise RuntimeError("no length information for axis %d "
+                                "of %s at %s" % (i, args[0].name, n.coord))
+
+                    if result is None:
+                        result = axis.leading_dim
+                    else:
+                        result = c_ast.BinaryOp("*", result, axis.leading_dim)
+
+                return self.visit(result)
+
+            elif name in ["lboundof", "uboundof", "puboundof", "ldimof", "strideof"]:
+                check_arg_count(2)
+                dim_decl = get_dim_decl()
+
+                if not (isinstance(args[1], c_ast.Constant) and
+                        is_an_int(args[1].value)):
+                    raise RuntimeError("second argument of '%s' "
+                            "at %s is not a constant integer"
+                            % (name, n.coord))
+
+                axis = int(args[1].value)
+
+                if name == "lboundof":
+                    result = dim_decl.dims[axis].start
+                elif name == "uboundof":
+                    result = dim_decl.dims[axis].end
+                elif name == "puboundof":
+                    if dim_decl.layout == "c":
+                        result = dim_decl.dims[axis].end
+                    elif dim_decl.layout == "fortran":
+                        result = c_ast.BinaryOp("+",
+                                dim_decl.dims[axis].end, c_ast.Constant("int", 1))
+                    else:
+                        raise RuntimeError("invalid array layout '%s'" % dim_decl.layout)
+
+                elif name == "ldimof":
+                    result = dim_decl.dims[axis].leading_dim
+                elif name == "strideof":
+                    result = dim_decl.dims[axis].leading_dim
+                else:
+                    raise RuntimeError("invalid dim query '%s'" % name)
+
+                if result is None:
+                    raise RuntimeError("no value available for '%s' at %s" % (
+                        CGeneratorBase.visit_FuncCall(self, n), n.coord))
+
+                return self.visit(result)
+
+        return CGeneratorBase.visit_FuncCall(self, n)
+
 
 
 
@@ -374,7 +487,8 @@ def preprocess_source(source, cpp, options):
             raise CompileError("preprocessing of %s failed" % source_path,
                                cmdline, stderr=stderr)
     finally:
-        os.unlink(source_path)
+        pass
+        #os.unlink(source_path)
 
     return stdout
 
@@ -382,7 +496,8 @@ def preprocess_source(source, cpp, options):
 
 
 INITIAL_TYPE_SYMBOLS = ["__builtin_va_list"]
-GCC_DEFINES = [
+PREAMBLE = [
+        CND_HELPERS,
         "#define __const const",
         "#define __restrict restrict",
         "#define __extension__ /*empty*/", # FIXME
@@ -417,7 +532,7 @@ def run_standalone():
 
     src = open(in_file, "rt").read()
 
-    extra_lines = GCC_DEFINES + [
+    extra_lines = PREAMBLE + [
         "# 1 \"%s\"" % in_file,
         ]
     src =  "\n".join(extra_lines) + "\n" + src
@@ -481,7 +596,7 @@ def run_as_compiler_frontend():
             if arg.endswith(".c") and not arg.startswith("-"):
                 src = open(arg, "rt").read()
 
-                extra_lines = GCC_DEFINES + [
+                extra_lines = PREAMBLE + [
                     "# 1 \"%s\"" % arg,
                     ]
                 src =  "\n".join(extra_lines) + "\n" + src
@@ -502,7 +617,7 @@ def run_as_compiler_frontend():
                 new_argv.append(gen_src_file)
                 temp_files.append(gen_src_file)
 
-            elif arg.startswith("-I") or arg.startswith("-D"):
+            elif arg.startswith("-I") or arg.startswith("-D") or arg.startswith("-std="):
                 cpp_options.append(arg)
                 new_argv.append(arg)
             elif arg == "-c":

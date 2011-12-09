@@ -2,16 +2,19 @@
 # -*- coding: latin1 -*-
 
 def main():
+    import distribute_setup
+    distribute_setup.use_setuptools()
+
     from setuptools import setup
 
-    setup(name="cndarray",
+    setup(name="cnd",
           version="2011.1",
           description="A preprocessor that gives C multidimensional arrays",
           long_description=open("README.rst", "rt").read(),
           author=u"Andreas Kloeckner",
           author_email="inform@tiker.net",
           license = "MIT",
-          url="http://mathema.tician.de/software/cndarray",
+          url="http://mathema.tician.de/software/cnd",
           classifiers=[
 
               ],
@@ -20,7 +23,7 @@ def main():
           install_requires=[ "pycparser", "ply"],
 
           scripts=["bin/cnd", "bin/cndcc"],
-          packages=["cndarray"]
+          packages=["cnd"]
          )
 
 if __name__ == "__main__":
