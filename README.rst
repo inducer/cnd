@@ -35,7 +35,10 @@ into this::
     }
 
 It understands all of C99. You may also take a look at a `more complete example
-<https://github.com/inducer/cnd/blob/master/examples/basic.c>`_.
+<https://github.com/inducer/cnd/blob/master/examples/basic.c>`_.  Note that the
+only effect of a `dimension` statement is to modify the interpretation of the
+`array[idx]` subscript operator. You can still have 1D indexing by writing
+`*(array + idx)`. `dimension` statements obey regular C scoping rules.
 
 Each axis specification in a `dimension` statement has the following form::
 
