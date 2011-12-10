@@ -164,7 +164,7 @@ class CNdArrayParser(CParserBase):
         p[0] = p[1]
 
     def p_dimension_decl(self, p):
-        """ dimension_decl : DIMENSION dim_layout_opt ID LBRACKET dim_spec_mult RBRACKET
+        """ dimension_decl : DIMENSION dim_layout_opt ID LPAREN dim_spec_mult RPAREN
         """
         coord = self._coord(p.lineno(1))
         layout = p[2]
@@ -228,6 +228,9 @@ class CNdArrayParser(CParserBase):
 
 
 
+class SyntaxError(RuntimeError):
+    pass
+
 class CGenerator(CGeneratorBase):
     def __init__(self):
         CGeneratorBase.__init__(self)
@@ -236,7 +239,7 @@ class CGenerator(CGeneratorBase):
     def visit_DimensionDecl(self, n):
         decl_stack = self.dim_decl_stack[-1]
         if n.name in decl_stack:
-            raise RuntimeError("may not redimension array '%s' at %s"
+            raise SyntaxError("may not redimension array '%s' at %s"
                     % (n.name, n.coord))
         decl_stack[n.name] = n
         return ""
@@ -248,86 +251,93 @@ class CGenerator(CGeneratorBase):
         dim_decls = self.dim_decl_stack[-1].copy()
         self.dim_decl_stack.append(dim_decls)
         for stmt in n.block_items:
-            s += ''.join(self._generate_stmt(stmt) )
+            s += "# %d \"%s\"\n%s" % (
+                stmt.coord.line, stmt.coord.file, ''.join(self._generate_stmt(stmt)))
+
         self.dim_decl_stack.pop()
 
         self.indent_level -= 2
         s += self._make_indent() + '}\n'
         return s
 
+    def generate_array_ref(self, dim_decl, name, subscript, coord):
+        if isinstance(subscript, c_ast.ExprList):
+            indices = subscript = subscript.exprs
+        else:
+            indices = [subscript]
+
+        if len(indices) != len(dim_decl.dims):
+            raise SyntaxError("invalid number of indices in "
+                    "array reference to '%s' at %s"
+                    % (name, coord))
+
+        axis_numbers = range(len(indices))
+
+        if dim_decl.layout == "c":
+            dim_it = zip(indices, dim_decl.dims, axis_numbers)
+        elif dim_decl.layout == "fortran":
+            dim_it = zip(indices[::-1], dim_decl.dims[::-1], axis_numbers[::-1])
+        else:
+            raise SyntaxError("invalid  array layout '%s'" % dim_decl.layout)
+
+        access = None
+        for idx, dim, axis in dim_it:
+            if access is not None:
+                if dim.leading_dim is None:
+                    raise SyntaxError("missing information on length of "
+                            "axis %d of array '%s', declared at %s"
+                            % (axis, name, dim_decl.coord))
+                access = c_ast.BinaryOp("*", access, dim.leading_dim)
+
+            if dim.stride is not None:
+                idx = c_ast.BinaryOp("*", idx, dim.stride)
+
+            if dim.start is not None:
+                idx = c_ast.BinaryOp("-", idx, dim.start)
+
+            if access is not None:
+                access = c_ast.BinaryOp("+", access, idx)
+            else:
+                access = idx
+
+        return "%s[%s]" % (name, self.visit(access))
+
     def visit_ArrayRef(self, n):
-        if isinstance(n.name, c_ast.ID):
-            dim_decl = self.dim_decl_stack[-1].get(n.name.name)
+        if isinstance(n.name, c_ast.ID) and isinstance(n.subscript, c_ast.ExprList):
+            raise SyntaxError("multi-dimensional array reference with brackets at %s"
+                    % n.coord)
         else:
-            dim_decl = None
-
-        if dim_decl is not None:
-            if isinstance(n.subscript, c_ast.ExprList):
-                indices = n.subscript = n.subscript.exprs
-            else:
-                indices = [n.subscript]
-
-            if len(indices) != len(dim_decl.dims):
-                raise RuntimeError("invalid number of indices in "
-                        "array reference to '%s' at %s"
-                        % (n.name.name, n.coord))
-
-            axis_numbers = range(len(indices))
-
-            if dim_decl.layout == "c":
-                dim_it = zip(indices, dim_decl.dims, axis_numbers)
-            elif dim_decl.layout == "fortran":
-                dim_it = zip(indices[::-1], dim_decl.dims[::-1], axis_numbers[::-1])
-            else:
-                raise RuntimeError("invalid  array layout '%s'" % dim_decl.layout)
-
-            access = None
-            for idx, dim, axis in dim_it:
-                if access is not None:
-                    if dim.leading_dim is None:
-                        raise RuntimeError("missing information on length of "
-                                "axis %d of array '%s', declared at %s"
-                                % (axis, n.name.name, dim_decl.coord))
-                    access = c_ast.BinaryOp("*", access, dim.leading_dim)
-
-                if dim.stride is not None:
-                    idx = c_ast.BinaryOp("*", idx, dim.stride)
-
-                if dim.start is not None:
-                    idx = c_ast.BinaryOp("-", idx, dim.start)
-
-                if access is not None:
-                    access = c_ast.BinaryOp("+", access, idx)
-                else:
-                    access = idx
-
-            return "%s[%s]" % (n.name.name, self.visit(access))
-
-        else:
-            arrref = self._parenthesize_unless_simple(n.name)
-            return arrref + '[' + self.visit(n.subscript) + ']'
+            return CGeneratorBase.visit_ArrayRef(self, n)
 
     def visit_FuncCall(self, n):
         if isinstance(n.name, c_ast.ID) and isinstance(n.args, c_ast.ExprList):
             name = n.name.name
             args = n.args.exprs
 
+            if isinstance(n.name, c_ast.ID):
+                dim_decl = self.dim_decl_stack[-1].get(n.name.name)
+            else:
+                dim_decl = None
+
+            if dim_decl is not None:
+                return self.generate_array_ref(dim_decl, name, n.args, n.coord)
+
             def check_arg_count(needed):
                 if len(args) != needed:
-                    raise RuntimeError("%s takes exactly %d argument(s), "
+                    raise SyntaxError("%s takes exactly %d argument(s), "
                             "%d given at %s"
                             % (name, needed, len(args), n.coord))
 
             def get_dim_decl():
                 if not isinstance(args[0], c_ast.ID):
-                    raise RuntimeError("may not call '%s' "
+                    raise SyntaxError("may not call '%s' "
                             "on undimensioned expression '%s' at %s"
                             % (name, args[0], n.coord))
 
                 dim_decl = self.dim_decl_stack[-1].get(args[0].name)
 
                 if dim_decl is None:
-                    raise RuntimeError("no dimension statement found for '%s' at %s"
+                    raise SyntaxError("no dimension statement found for '%s' at %s"
                             % (args[0].name, n.coord))
 
                 return dim_decl
@@ -351,7 +361,7 @@ class CGenerator(CGeneratorBase):
                 result = None
                 for i, axis in enumerate(dim_decl.dims):
                     if axis.leading_dim is None:
-                        raise RuntimeError("no length information for axis %d "
+                        raise SyntaxError("no length information for axis %d "
                                 "of %s at %s" % (i, args[0].name, n.coord))
 
                     if result is None:
@@ -367,7 +377,7 @@ class CGenerator(CGeneratorBase):
 
                 if not (isinstance(args[1], c_ast.Constant) and
                         is_an_int(args[1].value)):
-                    raise RuntimeError("second argument of '%s' "
+                    raise SyntaxError("second argument of '%s' "
                             "at %s is not a constant integer"
                             % (name, n.coord))
 
@@ -384,17 +394,17 @@ class CGenerator(CGeneratorBase):
                         result = c_ast.BinaryOp("+",
                                 dim_decl.dims[axis].end, c_ast.Constant("int", 1))
                     else:
-                        raise RuntimeError("invalid array layout '%s'" % dim_decl.layout)
+                        raise SyntaxError("invalid array layout '%s'" % dim_decl.layout)
 
                 elif name == "ldimof":
                     result = dim_decl.dims[axis].leading_dim
                 elif name == "strideof":
                     result = dim_decl.dims[axis].leading_dim
                 else:
-                    raise RuntimeError("invalid dim query '%s'" % name)
+                    raise SyntaxError("invalid dim query '%s'" % name)
 
                 if result is None:
-                    raise RuntimeError("no value available for '%s' at %s" % (
+                    raise SyntaxError("no value available for '%s' at %s" % (
                         CGeneratorBase.visit_FuncCall(self, n), n.coord))
 
                 return self.visit(result)

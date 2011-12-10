@@ -37,8 +37,9 @@ into this::
 It understands all of C99. You may also take a look at a `more complete example
 <https://github.com/inducer/cnd/blob/master/examples/basic.c>`_.  Note that the
 only effect of a `dimension` declaration is to modify the interpretation of the
-`array[idx]` subscript operator. You can still have 1D indexing by writing
-`*(array + idx)`. `dimension` declarations obey regular C scoping rules.
+`array(idx)` subscript operator. `dimension` declarations obey regular C
+scoping rules.  Note that in order to prevent nasty bugs, multi-dimensional
+array references using square brackets are considered an error.
 
 Each axis specification in a `dimension` declaration has the following form::
 
@@ -107,12 +108,40 @@ preprocessor on your source for you. Run::
 to get full help on the command line interface. You may set the `CND_CPP`
 environment variable to the preprocessor you wish to use.
 
+FAQ
+---
 
-Future Features
+Parentheses (not brackets) around indices? Are you kidding me?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+No. Turns out my hand is forced in this matter by a curious interaction with
+the C preprocessor. Consider the following stiuation::
+
+    #define MY_MACRO(a) /* something rather */
+
+    MY_MACRO(array[i,j])
+
+The preprocessor sees the comma and rips our array access apart into two macro
+arguments, and then complains that `MY_MACRO` takes only one argument.  Not
+very smart, but such is life. The `dimension` declaration then uses parentheses
+to match the array access.
+
+Credit for discovering this goes to Zydrunas Gimbutas.
+
+Version History
 ---------------
 
+* 2011.2
+ * Syntax change from `a[i,j]` to `a(i,j)`.
+ * Fixes for OS X and two bugs.
+ * Generate #line directives.
+
+* 2011.1: Initial release.
+
+Future Features
+^^^^^^^^^^^^^^^
+
 * Bounds checking.
-* Generate #line directives.
 
 Author
 ------
