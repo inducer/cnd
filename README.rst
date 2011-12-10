@@ -47,7 +47,7 @@ scoping rules.  Note that in order to prevent hard-to-find bugs,
 multi-dimensional array references using square brackets are considered an
 error.
 
-I'd also like to not that CnD is a robust, parser-based translator, not a flaky
+I'd also like to note that CnD is a robust, parser-based translator, not a flaky
 text replacement tool.  It understands all of C99.
 
 Each axis specification in a `dimension` declaration has the following form::
