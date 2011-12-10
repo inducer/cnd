@@ -183,6 +183,7 @@ Initial release.
 Future Features
 ^^^^^^^^^^^^^^^
 
+* Caching of lexer/parser tables (faster startup)
 * Bounds checking.
 
 Author

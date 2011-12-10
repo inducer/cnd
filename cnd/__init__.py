@@ -285,6 +285,10 @@ class CGenerator(CGeneratorBase):
         s += self._make_indent() + '}\n'
         return s
 
+    def visit_SemiExprList(self, n):
+        raise RuntimeError("internal error: a semicolon-delimited expression "
+                "list was encountered 'in the wild'")
+
     def generate_array_ref(self, dim_decl, name, subscript, coord):
         assert isinstance(subscript, SemiExprList)
         indices = subscript.exprs
@@ -326,10 +330,11 @@ class CGenerator(CGeneratorBase):
         return "%s[%s]" % (name, self.visit(access))
 
     def visit_ArrayRef(self, n):
-        if isinstance(n.name, c_ast.ID) and isinstance(n.subscript, c_ast.ExprList):
-            raise SyntaxError("multi-dimensional array reference with commas at %s"
-                    % n.coord)
-        elif isinstance(n.name, c_ast.ID) and isinstance(n.subscript, SemiExprList):
+        if not isinstance(n.subscript, SemiExprList):
+            raise SyntaxError("internal error: encountered array reference with "
+                    "non-semi-expr list subscript at %s" % n.coord)
+
+        if isinstance(n.name, c_ast.ID) and isinstance(n.subscript, SemiExprList):
             if isinstance(n.name, c_ast.ID):
                 dim_decl = self.dim_decl_stack[-1].get(n.name.name)
             else:
@@ -338,7 +343,12 @@ class CGenerator(CGeneratorBase):
             if dim_decl is not None:
                 return self.generate_array_ref(dim_decl, n.name.name, n.subscript, n.coord)
 
-        return CGeneratorBase.visit_ArrayRef(self, n)
+        if len(n.subscript.exprs) != 1:
+            raise SyntaxError("multi-D subscript on a non-identifier array at %s"
+                    % n.coord)
+
+        return CGeneratorBase.visit_ArrayRef(self, c_ast.ArrayRef(
+            n.name, n.subscript.exprs[0], n.coord))
 
     def visit_FuncCall(self, n):
         if isinstance(n.name, c_ast.ID) and isinstance(n.args, c_ast.ExprList):
