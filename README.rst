@@ -129,9 +129,8 @@ the C preprocessor. Consider the following stiuation::
 
 The preprocessor sees the comma and rips our array access apart into two macro
 arguments, and then complains that `MY_MACRO` takes only one argument.  Not
-very smart, but such is life. Thus round parentheses are the only choice--and
-the `dimension` declaration (where there would be a choice) uses parentheses to
-match the array access syntax.
+very smart, but such is life. Thus the most natural choice for array access
+syntax is out.
 
 (Credit for discovering this goes to Zydrunas Gimbutas.)
 
@@ -166,7 +165,8 @@ Version History
 ^^^^^^
 
 * Syntax change from `a(i,j)` to `a[i;j]`.
-* Parser support for many more GNU extensions in the parser, Glibc's `tgmath.h` is parsed correctly now.
+* Parser support for many more GNU extensions, `tgmath.h`
+  now works on OS X (10.7) and Linux.
 
 2011.2
 ^^^^^^
