@@ -67,7 +67,7 @@ If the layout is given as `"fortran"`, the following things are true:
 programmatically by the follwing functions:
 
 * `rankof(a)`
-* `nitems(a)`
+* `nitemsof(a)`
 * `lboundof(a, axis)`
 * `uboundof(a, axis)` (returns the user-specified upper bound)
 * `puboundof(a, axis)` (returns the index just past the end of axis)
