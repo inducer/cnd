@@ -3,9 +3,9 @@ in C more pleasant.  It will turn this code::
 
     void sgemm(float *a, float *b, float *c, int n)
     {
-      dimension "fortran" a(n, n);
-      dimension "fortran" b(n, n);
-      dimension c(n, n);
+      dimension "fortran" a[n; n];
+      dimension "fortran" b[n; n];
+      dimension c[n; n];
 
       for (int i = 1; i <= n; ++i)
         for (int j = 1; j <= n; ++j)
@@ -13,9 +13,9 @@ in C more pleasant.  It will turn this code::
           float tmp = 0;
 
           for (int k = 1; k <= n; ++k)
-            tmp += a(i,k)*b(k,j);
+            tmp += a[i;k]*b[k;j];
 
-          c(i-1,j-1) = tmp;
+          c[i-1;j-1] = tmp;
         }
     }
 
@@ -33,9 +33,6 @@ into this::
         c[((i - 1) * n) + (j - 1)] = tmp;
       }
     }
-
-(See the FAQ below if you're already not liking the round parentheses for array
-indexing. Turns out C leaves you no choice.)
 
 You may also take a look at a `more comprehensive example
 <https://github.com/inducer/cnd/blob/master/examples/basic.c>`_
@@ -120,10 +117,10 @@ environment variable to the preprocessor you wish to use.
 FAQ
 ---
 
-Parentheses (not brackets) around indices? Are you kidding me?
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Semicolons (not commas) to separate indices? Are you kidding me?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-No. Turns out my hand is forced in this matter by a curious interaction with
+No. Turns out our hand is forced in this matter by a curious interaction with
 the C preprocessor. Consider the following stiuation::
 
     #define MY_MACRO(a) /* something rather */
@@ -136,10 +133,40 @@ very smart, but such is life. Thus round parentheses are the only choice--and
 the `dimension` declaration (where there would be a choice) uses parentheses to
 match the array access syntax.
 
-Credit for discovering this goes to Zydrunas Gimbutas.
+(Credit for discovering this goes to Zydrunas Gimbutas.)
+
+After discovering the above fact, we went through a number of choices for the syntax.
+First, we tried::
+
+    a(i,j)
+
+While this was fine technically (and Fortran-compatible), it felt decidedly out
+of place in a C program, to the point of making the code hard to decipher.
+
+We also considered::
+
+    a[i][j]
+
+but this seemed wordy and deemphasized the fact that this was not 'classic' C-style
+array lookup.
+
+But Vim highlights semicolons as an error!
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Good point. Add this line::
+
+    let g:c_no_bracket_error = 1
+
+to your `.vimrc`.
 
 Version History
 ---------------
+
+2011.3
+^^^^^^
+
+* Syntax change from `a(i,j)` to `a[i;j]`.
+* Parser support for many more GNU extensions in the parser, Glibc's `tgmath.h` is parsed correctly now.
 
 2011.2
 ^^^^^^

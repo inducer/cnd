@@ -104,13 +104,24 @@ class DimensionDecl(c_ast.Node):
 
     attr_names = ("name", "layout", "dims")
 
+class SemiExprList(c_ast.Node):
+    def __init__(self, exprs, coord=None):
+        self.exprs = exprs
+        self.coord = coord
+
+    def children(self):
+        nodelist = []
+        for i, child in enumerate(self.exprs or []):
+            nodelist.append(("exprs[%d]" % i, child))
+        return tuple(nodelist)
+
+    attr_names = ()
 
 
 
 
 class CNdArrayParser(CParserBase):
-    def __init__(self,
-            yacc_debug=False):
+    def __init__(self, yacc_debug=False):
 
         self.clex = CNdArrayLexer(
             error_func=self._lex_error_func,
@@ -163,8 +174,22 @@ class CNdArrayParser(CParserBase):
         """
         p[0] = p[1]
 
+    # must match name in pycparser to override
+    def p_postfix_expression_2(self, p):
+        """ postfix_expression  : postfix_expression LBRACKET semi_expression_list RBRACKET """
+        p[0] = c_ast.ArrayRef(p[1], p[3], p[1].coord)
+
+    def p_semi_expression_list_1(self, p):
+        """ semi_expression_list  : expression"""
+        p[0] = SemiExprList([p[1]], self._coord(p.lineno(1)))
+
+    def p_semi_expression_list_2(self, p):
+        """ semi_expression_list  : semi_expression_list SEMI expression """
+        p[1].exprs.append(p[3])
+        p[0] = p[1]
+
     def p_dimension_decl(self, p):
-        """ dimension_decl : DIMENSION dim_layout_opt ID LPAREN dim_spec_mult RPAREN
+        """ dimension_decl : DIMENSION dim_layout_opt ID LBRACKET dim_spec_mult RBRACKET
         """
         coord = self._coord(p.lineno(1))
         layout = p[2]
@@ -189,7 +214,7 @@ class CNdArrayParser(CParserBase):
 
     def p_dim_spec_mult(self, p):
         """ dim_spec_mult : dim_spec
-                          | dim_spec_mult COMMA dim_spec
+                          | dim_spec_mult SEMI dim_spec
         """
         p[0] = None
         if len(p) == 2:
@@ -261,15 +286,13 @@ class CGenerator(CGeneratorBase):
         return s
 
     def generate_array_ref(self, dim_decl, name, subscript, coord):
-        if isinstance(subscript, c_ast.ExprList):
-            indices = subscript = subscript.exprs
-        else:
-            indices = [subscript]
+        assert isinstance(subscript, SemiExprList)
+        indices = subscript.exprs
 
         if len(indices) != len(dim_decl.dims):
             raise SyntaxError("invalid number of indices in "
-                    "array reference to '%s' at %s"
-                    % (name, coord))
+                    "array reference to '%s' at %s (given: %d, needed: %d)"
+                    % (name, coord, len(indices), len(dim_decl.dims)))
 
         axis_numbers = range(len(indices))
 
@@ -304,23 +327,23 @@ class CGenerator(CGeneratorBase):
 
     def visit_ArrayRef(self, n):
         if isinstance(n.name, c_ast.ID) and isinstance(n.subscript, c_ast.ExprList):
-            raise SyntaxError("multi-dimensional array reference with brackets at %s"
+            raise SyntaxError("multi-dimensional array reference with commas at %s"
                     % n.coord)
-        else:
-            return CGeneratorBase.visit_ArrayRef(self, n)
-
-    def visit_FuncCall(self, n):
-        if isinstance(n.name, c_ast.ID) and isinstance(n.args, c_ast.ExprList):
-            name = n.name.name
-            args = n.args.exprs
-
+        elif isinstance(n.name, c_ast.ID) and isinstance(n.subscript, SemiExprList):
             if isinstance(n.name, c_ast.ID):
                 dim_decl = self.dim_decl_stack[-1].get(n.name.name)
             else:
                 dim_decl = None
 
             if dim_decl is not None:
-                return self.generate_array_ref(dim_decl, name, n.args, n.coord)
+                return self.generate_array_ref(dim_decl, n.name.name, n.subscript, n.coord)
+
+        return CGeneratorBase.visit_ArrayRef(self, n)
+
+    def visit_FuncCall(self, n):
+        if isinstance(n.name, c_ast.ID) and isinstance(n.args, c_ast.ExprList):
+            name = n.name.name
+            args = n.args.exprs
 
             def check_arg_count(needed):
                 if len(args) != needed:
@@ -561,10 +584,11 @@ def run_standalone():
 
     src = open(in_file, "rt").read()
 
-    extra_lines = PREAMBLE + [
-        "# 1 \"%s\"" % in_file,
-        ]
-    src =  "\n".join(extra_lines) + "\n" + src
+    if options.preprocess:
+        extra_lines = PREAMBLE + [
+            "# 1 \"%s\"" % in_file,
+            ]
+        src =  "\n".join(extra_lines) + "\n" + src
 
     if options.preprocess:
         cpp_options = []
