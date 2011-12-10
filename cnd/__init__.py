@@ -1,4 +1,11 @@
 from __future__ import division
+
+import sys
+if sys.version_info < (2, 5):
+    raise RuntimeError("CnD requires Python 2.5 or newer. "
+            "Try running 'python2.5 cndcc <arguments>' "
+            "'python2.6 cndcc <arguments>'.")
+
 import ply
 from pycparser.c_lexer import CLexer as CLexerBase
 from pycparser.c_parser import CParser as CParserBase
