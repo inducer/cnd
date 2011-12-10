@@ -308,7 +308,7 @@ class CGenerator(CGeneratorBase):
             return arrref + '[' + self.visit(n.subscript) + ']'
 
     def visit_FuncCall(self, n):
-        if isinstance(n.name, c_ast.ID):
+        if isinstance(n.name, c_ast.ID) and isinstance(n.args, c_ast.ExprList):
             name = n.name.name
             args = n.args.exprs
 
@@ -475,7 +475,11 @@ def preprocess_source(source, cpp, options):
     if cpp is None:
         cpp = os.environ.get("CPP")
     if cpp is None:
-        cpp = "cpp"
+        import sys
+        if sys.platform.startswith("darwin"):
+            cpp = "gcc -E"
+        else:
+            cpp = "cpp"
 
     cpp = cpp.split()
 
@@ -505,10 +509,18 @@ def preprocess_source(source, cpp, options):
 INITIAL_TYPE_SYMBOLS = ["__builtin_va_list"]
 PREAMBLE = [
         CND_HELPERS,
-        "#define __const const",
-        "#define __restrict restrict",
+        #"#define __const const",
+        #"#define __restrict restrict",
         "#define __extension__ /*empty*/", # FIXME
         ]
+
+if sys.platform.startswith("linux"):
+    PREAMBLE.append("#define __const const")
+    PREAMBLE.append("#define __restrict restrict")
+
+if sys.platform.startswith("darwin"):
+    PREAMBLE.append("#define __inline__ inline")
+    PREAMBLE.append("#define __inline inline")
 
 
 
@@ -610,7 +622,7 @@ def run_as_compiler_frontend():
 
                 #cpp_options.append("-P")
 
-                src = preprocess_source(src, "cpp", cpp_options)
+                src = preprocess_source(src, None, cpp_options)
 
                 #print "preprocessed source in ", write_temp_file(src, ".c")
 
