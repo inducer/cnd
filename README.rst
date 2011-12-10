@@ -3,9 +3,9 @@ in C more pleasant.  It will turn this code::
 
     void sgemm(float *a, float *b, float *c, int n)
     {
-      dimension "fortran" a[n, n];
-      dimension "fortran" b[n, n];
-      dimension c[n, n];
+      dimension "fortran" a(n, n);
+      dimension "fortran" b(n, n);
+      dimension c(n, n);
 
       for (int i = 1; i <= n; ++i)
         for (int j = 1; j <= n; ++j)
@@ -13,9 +13,9 @@ in C more pleasant.  It will turn this code::
           float tmp = 0;
 
           for (int k = 1; k <= n; ++k)
-            tmp += a[i,k]*b[k,j];
+            tmp += a(i,k)*b(k,j);
 
-          c[i-1,j-1] = tmp;
+          c(i-1,j-1) = tmp;
         }
     }
 
@@ -34,12 +34,21 @@ into this::
       }
     }
 
-It understands all of C99. You may also take a look at a `more complete example
-<https://github.com/inducer/cnd/blob/master/examples/basic.c>`_.  Note that the
-only effect of a `dimension` declaration is to modify the interpretation of the
-`array(idx)` subscript operator. `dimension` declarations obey regular C
-scoping rules.  Note that in order to prevent nasty bugs, multi-dimensional
-array references using square brackets are considered an error.
+(See the FAQ below if you're already not liking the round parentheses for array
+indexing. Turns out C leaves you no choice.)
+
+You may also take a look at a `more comprehensive example
+<https://github.com/inducer/cnd/blob/master/examples/basic.c>`_
+that shows a few extra bells and whistles.
+
+The only effect of a `dimension` declaration is to modify the interpretation of
+the `array(idx)` subscript operator. `dimension` declarations obey regular C
+scoping rules.  Note that in order to prevent hard-to-find bugs,
+multi-dimensional array references using square brackets are considered an
+error.
+
+I'd also like to not that CnD is a robust, parser-based translator, not a flaky
+text replacement tool.  It understands all of C99.
 
 Each axis specification in a `dimension` declaration has the following form::
 
@@ -131,12 +140,17 @@ Credit for discovering this goes to Zydrunas Gimbutas.
 Version History
 ---------------
 
-* 2011.2
- * Syntax change from `a[i,j]` to `a(i,j)`.
- * Fixes for OS X and two bugs.
- * Generate #line directives.
+2011.2
+^^^^^^
 
-* 2011.1: Initial release.
+* Syntax change from `a[i,j]` to `a(i,j)`.
+* Fixes for OS X and two bugs.
+* Generate #line directives.
+
+2011.1
+^^^^^^
+
+Initial release.
 
 Future Features
 ^^^^^^^^^^^^^^^
