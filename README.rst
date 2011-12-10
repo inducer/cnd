@@ -132,8 +132,9 @@ the C preprocessor. Consider the following stiuation::
 
 The preprocessor sees the comma and rips our array access apart into two macro
 arguments, and then complains that `MY_MACRO` takes only one argument.  Not
-very smart, but such is life. The `dimension` declaration then uses parentheses
-to match the array access.
+very smart, but such is life. Thus round parentheses are the only choice--and
+the `dimension` declaration (where there would be a choice) uses parentheses to
+match the array access syntax.
 
 Credit for discovering this goes to Zydrunas Gimbutas.
 
