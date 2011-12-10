@@ -36,11 +36,11 @@ into this::
 
 It understands all of C99. You may also take a look at a `more complete example
 <https://github.com/inducer/cnd/blob/master/examples/basic.c>`_.  Note that the
-only effect of a `dimension` statement is to modify the interpretation of the
+only effect of a `dimension` declaration is to modify the interpretation of the
 `array[idx]` subscript operator. You can still have 1D indexing by writing
-`*(array + idx)`. `dimension` statements obey regular C scoping rules.
+`*(array + idx)`. `dimension` declaration obey regular C scoping rules.
 
-Each axis specification in a `dimension` statement has the following form::
+Each axis specification in a `dimension` declaration has the following form::
 
     start:end:stride:leading_dimension
 
@@ -48,7 +48,7 @@ Each axis specification in a `dimension` statement has the following form::
 after them are to be specified, their trailing colons must remain in place. For
 example, the axis specification `:5` simply specifies a stride of 5. The stride
 simply acts as a multiplier on the index.  No plausibility checking whatsoever
-is done on the dimension statement.  You may shoot yourself in the foot any way
+is done on the dimension declaration.  You may shoot yourself in the foot any way
 you like.
 
 If the layout is given as `"c"` or not given at all, the following things are true:
@@ -63,7 +63,7 @@ If the layout is given as `"fortran"`, the following things are true:
 * The `end` index is taken to be inclusive, if specified.
 * The `start` index defaults to 1.
 
-(Most) of the knowledge contained in the `dimension` statement may be reobtained
+(Most) of the knowledge contained in the `dimension` declaration may be reobtained
 programmatically by the follwing functions:
 
 * `rankof(a)`
