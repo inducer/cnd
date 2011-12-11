@@ -8,7 +8,7 @@ def main():
     from setuptools import setup
 
     setup(name="cnd",
-          version="2011.3",
+          version="2011.4",
           description="A preprocessor that gives C multidimensional arrays",
           long_description=open("README.rst", "rt").read(),
           author=u"Andreas Kloeckner",

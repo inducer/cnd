@@ -3,9 +3,9 @@ in C more pleasant.  It will turn this code::
 
     void sgemm(float *a, float *b, float *c, int n)
     {
-      dimension "fortran" a[n; n];
-      dimension "fortran" b[n; n];
-      dimension c[n; n];
+      dimension "fortran" a[n, n];
+      dimension "fortran" b[n, n];
+      dimension c[n, n];
 
       for (int i = 1; i <= n; ++i)
         for (int j = 1; j <= n; ++j)
@@ -13,9 +13,9 @@ in C more pleasant.  It will turn this code::
           float tmp = 0;
 
           for (int k = 1; k <= n; ++k)
-            tmp += a[i;k]*b[k;j];
+            tmp += a[i,k]*b[k,j];
 
-          c[i-1;j-1] = tmp;
+          c[i-1,j-1] = tmp;
         }
     }
 
@@ -40,12 +40,10 @@ that shows a few extra bells and whistles.
 
 The only effect of a `dimension` declaration is to modify the interpretation of
 the `array(idx)` subscript operator. `dimension` declarations obey regular C
-scoping rules.  Note that in order to prevent hard-to-find bugs,
-multi-dimensional array references using square brackets are considered an
-error.
+scoping rules.
 
 I'd also like to note that CnD is a robust, parser-based translator, not a flaky
-text replacement tool.  It understands all of C99.
+text replacement tool.  It understands all of C99, plus many GNU extensions.
 
 Each axis specification in a `dimension` declaration has the following form::
 
@@ -117,11 +115,10 @@ environment variable to the preprocessor you wish to use.
 FAQ
 ---
 
-Semicolons (not commas) to separate indices? Are you kidding me?
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+But isn't there a preprocessor issue with this syntax?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-No. Turns out our hand is forced in this matter by a curious interaction with
-the C preprocessor. Consider the following stiuation::
+Great point. Consider the following stiuation::
 
     #define MY_MACRO(a) /* something rather */
 
@@ -129,40 +126,39 @@ the C preprocessor. Consider the following stiuation::
 
 The preprocessor sees the comma and rips our array access apart into two macro
 arguments, and then complains that `MY_MACRO` takes only one argument.  Not
-very smart, but such is life. Thus the most natural choice for array access
-syntax is out.
+very smart, but such is life. (Credit for discovering this goes to Zydrunas
+Gimbutas.)
 
-(Credit for discovering this goes to Zydrunas Gimbutas.)
+The easiest fix is to use the following syntax::
 
-After discovering the above fact, we went through a number of choices for the syntax.
-First, we tried::
+    MY_MACRO(array[(i,j)])
 
-    a(i,j)
-
-While this was fine technically (and Fortran-compatible), it felt decidedly out
-of place in a C program, to the point of making the code hard to decipher.
-
-We also considered::
-
-    a[i][j]
-
-but this seemed wordy and deemphasized the fact that this was not 'classic' C-style
-array lookup.
-
-But Vim highlights semicolons as an error!
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Good point. Add this line::
-
-    let g:c_no_bracket_error = 1
-
-to your `.vimrc`.
+This is guaranteed to work, always. Some C standard 'functions' may also turn
+out to be macros, so in principle you are obliged to use this syntax whenever
+you pass the result of a multi-D array access to a function that you haven't
+declared yourself. That's obviously inconvienient, so there's one more plot
+twist. CnD will rewrite your main source file (but not any included headers!)
+by inserting parentheses within brackets (in non-string, non-char-constant,
+non-preprocessor contexts). This is a no-op as far as C99 is concerned. As a
+result, you are obliged to use the parenthesized syntax only in files that are
+not top-level compiled files and only in contexts where the array access might
+be part of a macro expansion.
 
 Version History
 ---------------
 
+2011.4
+^^^^^^
+
+(December 11, 2012)
+
+* Syntax change from `a[i;j]` to `a[i,j]`.
+* Still more parser support for real-life headers.
+
 2011.3
 ^^^^^^
+
+(December 10, 2012)
 
 * Syntax change from `a(i,j)` to `a[i;j]`.
 * Parser support for many more GNU extensions, `tgmath.h`
@@ -171,12 +167,16 @@ Version History
 2011.2
 ^^^^^^
 
+(December 10, 2012)
+
 * Syntax change from `a[i,j]` to `a(i,j)`.
 * Fixes for OS X and two bugs.
 * Generate #line directives.
 
 2011.1
 ^^^^^^
+
+(December 9, 2012)
 
 Initial release.
 

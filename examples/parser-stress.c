@@ -1,3 +1,7 @@
+#include \
+  <complex.h>
+
+int getloadavg(double [], int);
 
 int main()
 {
@@ -22,5 +26,8 @@ int main()
                             (__builtin_classify_type ((__typeof__ (x)) 0) == 9 && __builtin_classify_type (__real__ ((__typeof__ (x)) 0)) == 8)))))) 0))) 0)) creall (x) : (__typeof__ (__real__ (__typeof__ (*(0 ? (__typeof__ (0 ? (double *) 0 : (void *) 
                         ((__builtin_classify_type ((__typeof__ (x)) 0) == 8 || (__builtin_classify_type ((__typeof__ (x)) 0) == 9 && __builtin_classify_type (__real__ ((__typeof__ (x)) 0)) == 8))))) 0 : (__typeof__ (0 ? (__typeof__ ((__typeof__ (x)) 0) *) 0 
                         : (void *) (!((__builtin_classify_type ((__typeof__ (x)) 0) == 8 || (__builtin_classify_type ((__typeof__ (x)) 0) == 9 && __builtin_classify_type (__real__ ((__typeof__ (x)) 0)) == 8)))))) 0))) 0)) creall (x))));
+
+  int z;
+  __asm__ ("bswap   %0" : "+r" (z));
 
 }

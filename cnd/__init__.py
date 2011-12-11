@@ -3,12 +3,12 @@ from __future__ import division
 import sys
 if sys.version_info < (2, 5):
     raise RuntimeError("CnD requires Python 2.5 or newer. "
-            "Try running 'python2.5 cndcc <arguments>' "
+            "Try running 'python2.5 cndcc <arguments>' or "
             "'python2.6 cndcc <arguments>'.")
 
 import ply
 from pycparser.c_lexer import CLexer as CLexerBase
-from pycparser.c_parser import CParser as CParserBase
+from pycparser.gnu_c_parser import GnuCParser as CParserBase
 from pycparser import c_ast
 from pycparser.c_generator import CGenerator as CGeneratorBase
 import sys
@@ -47,6 +47,68 @@ class CNdArrayLexer(CLexerBase):
 
     tokens = CLexerBase.tokens + tuple(
             kw.upper() for kw in cnd_keywords)
+
+# {{{ parenthesis insertion
+
+def insert_parens_in_brackets(filename, s):
+    lines = s.split("\n")
+
+    new_lines = []
+    li = 0
+    in_string = None
+
+    while li < len(lines):
+        line = lines[li]
+        li += 1
+
+        if line.lstrip().startswith("#"):
+            while True:
+                new_lines.append(line)
+
+                if li >= len(lines) or not line.endswith("\\"):
+                    break
+
+                line = lines[li]
+                li += 1
+
+            continue
+
+        new_line = []
+
+        i = 0
+
+        while i < len(line):
+            c = line[i]
+
+            if c == "[" and not in_string:
+                new_line.append("[(")
+                i += 1
+            elif c == "]" and not in_string:
+                new_line.append(")]")
+                i += 1
+            elif c in "'\"" and not in_string:
+                new_line.append(c)
+                i += 1
+                in_string = c
+            elif c in "'\"" and in_string == c:
+                new_line.append(c)
+                i += 1
+                in_string = None
+            elif c == "\\" and in_string:
+                new_line.append(c)
+                i += 1
+                if i < len(line):
+                    new_line.append(line[i])
+                    i += 1
+            else:
+                new_line.append(c)
+                i += 1
+
+        new_lines.append("".join(new_line))
+
+    return "\n".join(new_lines)
+
+# }}}
 
 
 
@@ -104,22 +166,6 @@ class DimensionDecl(c_ast.Node):
 
     attr_names = ("name", "layout", "dims")
 
-class SemiExprList(c_ast.Node):
-    def __init__(self, exprs, coord=None):
-        self.exprs = exprs
-        self.coord = coord
-
-    def children(self):
-        nodelist = []
-        for i, child in enumerate(self.exprs or []):
-            nodelist.append(("exprs[%d]" % i, child))
-        return tuple(nodelist)
-
-    attr_names = ()
-
-
-
-
 class CNdArrayParser(CParserBase):
     def __init__(self, yacc_debug=False):
 
@@ -167,6 +213,37 @@ class CNdArrayParser(CParserBase):
         else:
             return self.cparser.parse(text, lexer=self.clex, debug=debuglevel)
 
+    # {{{ hack around [()]
+
+    def p_direct_no_dim_array_declarator_with_parens(self, p):
+        """ direct_declarator   : direct_declarator LBRACKET LPAREN RPAREN RBRACKET
+        """
+        arr = c_ast.ArrayDecl(
+            type=None,
+            dim=None,
+            coord=p[1].coord)
+
+        p[0] = self._type_modify_decl(decl=p[1], modifier=arr)
+
+    def p_direct_abstract_no_dim_array_declarator_with_parens(self, p):
+        """ direct_abstract_declarator  : direct_abstract_declarator LBRACKET LPAREN RPAREN RBRACKET
+        """
+        arr = c_ast.ArrayDecl(
+            type=None,
+            dim=None,
+            coord=p[1].coord)
+
+        p[0] = self._type_modify_decl(decl=p[1], modifier=arr)
+
+    def p_direct_abstract_no_dim_array_declarator_with_parens_2(self, p):
+        """ direct_abstract_declarator  : LBRACKET LPAREN RPAREN RBRACKET
+        """
+        p[0] = c_ast.ArrayDecl(
+            type=c_ast.TypeDecl(None, None, None),
+            dim=None,
+            coord=self._coord(p.lineno(1)))
+
+    # }}}
 
     def p_declaration(self, p):
         """ declaration : decl_body SEMI
@@ -174,22 +251,8 @@ class CNdArrayParser(CParserBase):
         """
         p[0] = p[1]
 
-    # must match name in pycparser to override
-    def p_postfix_expression_2(self, p):
-        """ postfix_expression  : postfix_expression LBRACKET semi_expression_list RBRACKET """
-        p[0] = c_ast.ArrayRef(p[1], p[3], p[1].coord)
-
-    def p_semi_expression_list_1(self, p):
-        """ semi_expression_list  : expression"""
-        p[0] = SemiExprList([p[1]], self._coord(p.lineno(1)))
-
-    def p_semi_expression_list_2(self, p):
-        """ semi_expression_list  : semi_expression_list SEMI expression """
-        p[1].exprs.append(p[3])
-        p[0] = p[1]
-
     def p_dimension_decl(self, p):
-        """ dimension_decl : DIMENSION dim_layout_opt ID LBRACKET dim_spec_mult RBRACKET
+        """ dimension_decl : DIMENSION dim_layout_opt ID LBRACKET lparen_opt dim_spec_mult rparen_opt RBRACKET
         """
         coord = self._coord(p.lineno(1))
         layout = p[2]
@@ -204,7 +267,19 @@ class CNdArrayParser(CParserBase):
             raise RuntimeError("invalid  array layout '%s'" % layout)
 
         p[0] = DimensionDecl(p[3], layout, [
-            SingleDim(layout, *args) for args in p[5]], coord)
+            SingleDim(layout, *args) for args in p[6]], coord)
+
+    def p_lparen_opt(self, p):
+        """ lparen_opt : LPAREN
+                       | empty
+        """
+        p[0] = None
+
+    def p_rparen_opt(self, p):
+        """ rparen_opt : RPAREN
+                       | empty
+        """
+        p[0] = None
 
     def p_dim_layout_opt(self, p):
         """ dim_layout_opt : STRING_LITERAL
@@ -214,7 +289,7 @@ class CNdArrayParser(CParserBase):
 
     def p_dim_spec_mult(self, p):
         """ dim_spec_mult : dim_spec
-                          | dim_spec_mult SEMI dim_spec
+                          | dim_spec_mult COMMA dim_spec
         """
         p[0] = None
         if len(p) == 2:
@@ -285,14 +360,7 @@ class CGenerator(CGeneratorBase):
         s += self._make_indent() + '}\n'
         return s
 
-    def visit_SemiExprList(self, n):
-        raise RuntimeError("internal error: a semicolon-delimited expression "
-                "list was encountered 'in the wild'")
-
-    def generate_array_ref(self, dim_decl, name, subscript, coord):
-        assert isinstance(subscript, SemiExprList)
-        indices = subscript.exprs
-
+    def generate_array_ref(self, dim_decl, name, indices, coord):
         if len(indices) != len(dim_decl.dims):
             raise SyntaxError("invalid number of indices in "
                     "array reference to '%s' at %s (given: %d, needed: %d)"
@@ -330,25 +398,22 @@ class CGenerator(CGeneratorBase):
         return "%s[%s]" % (name, self.visit(access))
 
     def visit_ArrayRef(self, n):
-        if not isinstance(n.subscript, SemiExprList):
-            raise SyntaxError("internal error: encountered array reference with "
-                    "non-semi-expr list subscript at %s" % n.coord)
-
-        if isinstance(n.name, c_ast.ID) and isinstance(n.subscript, SemiExprList):
+        if isinstance(n.name, c_ast.ID):
             if isinstance(n.name, c_ast.ID):
                 dim_decl = self.dim_decl_stack[-1].get(n.name.name)
             else:
                 dim_decl = None
 
-            if dim_decl is not None:
-                return self.generate_array_ref(dim_decl, n.name.name, n.subscript, n.coord)
+            if isinstance(n.subscript, c_ast.ExprList):
+                indices = n.subscript.exprs
+            else:
+                indices = n.subscript
 
-        if len(n.subscript.exprs) != 1:
-            raise SyntaxError("multi-D subscript on a non-identifier array at %s"
-                    % n.coord)
+            if dim_decl is not None:
+                return self.generate_array_ref(dim_decl, n.name.name, indices, n.coord)
 
         return CGeneratorBase.visit_ArrayRef(self, c_ast.ArrayRef(
-            n.name, n.subscript.exprs[0], n.coord))
+            n.name, n.subscript, n.coord))
 
     def visit_FuncCall(self, n):
         if isinstance(n.name, c_ast.ID) and isinstance(n.args, c_ast.ExprList):
@@ -552,18 +617,9 @@ def preprocess_source(source, cpp, options):
 INITIAL_TYPE_SYMBOLS = ["__builtin_va_list"]
 PREAMBLE = [
         CND_HELPERS,
-        #"#define __const const",
-        #"#define __restrict restrict",
         "#define __extension__ /*empty*/", # FIXME
         ]
 
-if sys.platform.startswith("linux"):
-    PREAMBLE.append("#define __const const")
-    PREAMBLE.append("#define __restrict restrict")
-
-if sys.platform.startswith("darwin"):
-    PREAMBLE.append("#define __inline__ inline")
-    PREAMBLE.append("#define __inline inline")
 
 
 
@@ -593,6 +649,7 @@ def run_standalone():
     in_file = args[0]
 
     src = open(in_file, "rt").read()
+    src = insert_parens_in_brackets(in_file, src)
 
     if options.preprocess:
         extra_lines = PREAMBLE + [
@@ -658,6 +715,7 @@ def run_as_compiler_frontend():
         for arg in argv:
             if arg.endswith(".c") and not arg.startswith("-"):
                 src = open(arg, "rt").read()
+                src = insert_parens_in_brackets(arg, src)
 
                 extra_lines = PREAMBLE + [
                     "# 1 \"%s\"" % arg,
