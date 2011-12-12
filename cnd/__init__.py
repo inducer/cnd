@@ -17,6 +17,8 @@ import sys
 
 
 
+import cnd.version
+
 CND_HELPERS = """
 #define CND_ALLOC_HEAP(type, name) \
   name = malloc(nitemsof(name)*sizeof(type));
@@ -30,8 +32,15 @@ CND_HELPERS = """
 
 #define CND_FOR_AXIS(it_var, name, ax_index) \
   for (long it_var = lboundof(name, ax_index); it_var < puboundof(name, ax_index); ++it_var)
-"""
 
+#define CND_VERSION_MAJOR %(major_ver)d
+#define CND_VERSION_MINOR %(minor_ver)d
+#define CND_VERSION_TEXT %(text_ver)s
+""" % dict(
+        major_ver=cnd.version.VERSION[0],
+        minor_ver=cnd.version.VERSION[1],
+        text_ver=cnd.version.VERSION_TEXT,
+        )
 
 
 
