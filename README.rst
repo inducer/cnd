@@ -1,3 +1,11 @@
+.. note::
+
+    I was surprised to see there were this many (about 150) downloads of CnD in
+    the few (2) days since its initial release. As you may have noticed, we've
+    gone through a number of syntax changes since Friday, finally ending up
+    back where we started. I promise that this will be the last syntax change,
+    just in case you were wondering.
+
 CnD is a source-to-source translator that makes using n-dimensional arrays
 in C more pleasant.  It will turn this code::
 
