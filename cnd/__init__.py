@@ -7,10 +7,22 @@ if sys.version_info < (2, 5):
             "'python2.6 cndcc <arguments>'.")
 
 import ply
-from pycparser.c_lexer import CLexer as CLexerBase
-from pycparser.gnu_c_parser import GnuCParser as CParserBase
+from pycparserext.ext_c_lexer import (
+        add_lexer_keywords,
+        GNUCLexer as GNUCLexerBase,
+        OpenCLCLexer as OpenCLCLexerBase,
+        )
 from pycparser import c_ast
-from pycparser.c_generator import CGenerator as CGeneratorBase
+from pycparserext.ext_c_parser import (
+        GnuCParser as GNUCParserBase,
+        OpenCLCParser as OpenCLCParserBase,
+        )
+
+from pycparserext.ext_c_generator import (
+        GNUCGenerator as GNUCGeneratorBase,
+        OpenCLCGenerator as OpenCLCGeneratorBase,
+        )
+
 import sys
 
 
@@ -44,18 +56,21 @@ CND_HELPERS = """
 
 
 
+
+# {{{ lexers
+
+class GNUCndLexer(GNUCLexerBase):
+    pass
+
+class OpenCLCndLexer(OpenCLCLexerBase):
+    pass
+
 cnd_keywords = ("dimension",)
-class CNdArrayLexer(CLexerBase):
 
-    keywords = CLexerBase.keywords + tuple(
-            kw.upper() for kw in cnd_keywords)
+add_lexer_keywords(GNUCndLexer, cnd_keywords)
+add_lexer_keywords(OpenCLCndLexer, cnd_keywords)
 
-    keyword_map = CLexerBase.keyword_map.copy()
-    keyword_map.update(dict(
-        (kw, kw.upper()) for kw in cnd_keywords))
-
-    tokens = CLexerBase.tokens + tuple(
-            kw.upper() for kw in cnd_keywords)
+# }}}
 
 # {{{ parenthesis insertion
 
@@ -123,6 +138,8 @@ def insert_parens_in_brackets(filename, s):
 
 
 
+# {{{ AST helper objects
+
 class SingleDim(object):
     def __init__(self, layout, start, end, stride, leading_dim):
         self.end = end
@@ -147,7 +164,7 @@ class SingleDim(object):
         self.leading_dim = leading_dim
 
     def __repr__(self):
-        generator = CGenerator()
+        generator = GNUCGenerator()
 
         def stringify(x):
             if x is None:
@@ -175,40 +192,11 @@ class DimensionDecl(c_ast.Node):
 
     attr_names = ("name", "layout", "dims")
 
-class CNdArrayParser(CParserBase):
-    def __init__(self, yacc_debug=False):
+# }}}
 
-        self.clex = CNdArrayLexer(
-            error_func=self._lex_error_func,
-            type_lookup_func=self._lex_type_lookup_func)
+# {{{ parsers
 
-        self.clex.build()
-        self.tokens = self.clex.tokens
-
-        rules_with_opt = [
-            'abstract_declarator',
-            'assignment_expression',
-            'declaration_list',
-            'declaration_specifiers',
-            'designation',
-            'expression',
-            'identifier_list',
-            'init_declarator_list',
-            'parameter_type_list',
-            'specifier_qualifier_list',
-            'block_item_list',
-            'type_qualifier_list',
-            'struct_declarator_list'
-        ]
-
-        for rule in rules_with_opt:
-            self._create_opt_rule(rule)
-
-        self.cparser = ply.yacc.yacc(
-            module=self,
-            start='translation_unit',
-            debug=yacc_debug, write_tables=False)
-
+class CndParserBase(object):
     def parse(self, text, filename='', debuglevel=0,
             initial_type_symbols=set()):
         self.clex.filename = filename
@@ -333,6 +321,40 @@ class CNdArrayParser(CParserBase):
         """
         p[0] = (p[1], p[3], p[5], p[7])
 
+OPT_RULES = [
+    'abstract_declarator',
+    'assignment_expression',
+    'declaration_list',
+    'declaration_specifiers',
+    'designation',
+    'expression',
+    'identifier_list',
+    'init_declarator_list',
+    'parameter_type_list',
+    'specifier_qualifier_list',
+    'block_item_list',
+    'type_qualifier_list',
+    'struct_declarator_list'
+]
+
+class GNUCndParser(CndParserBase, GNUCParserBase):
+    def __init__(self, yacc_debug=False):
+        self.clex = GNUCndLexer(
+            error_func=self._lex_error_func,
+            type_lookup_func=self._lex_type_lookup_func)
+
+        self.clex.build()
+        self.tokens = self.clex.tokens
+
+        for rule in OPT_RULES:
+            self._create_opt_rule(rule)
+
+        self.cparser = ply.yacc.yacc(
+            module=self,
+            start='translation_unit',
+            debug=yacc_debug, write_tables=False)
+
+# }}}
 
 
 
@@ -340,9 +362,10 @@ class CNdArrayParser(CParserBase):
 class SyntaxError(RuntimeError):
     pass
 
-class CGenerator(CGeneratorBase):
+# {{{ generators
+
+class CndGeneratorMixin(object):
     def __init__(self):
-        CGeneratorBase.__init__(self)
         self.dim_decl_stack = [{}]
 
     def visit_DimensionDecl(self, n):
@@ -353,6 +376,7 @@ class CGenerator(CGeneratorBase):
         decl_stack[n.name] = n
         return ""
 
+    # overrides base to treat dim_decl_stack
     def visit_Compound(self, n):
         s = self._make_indent() + '{\n'
         self.indent_level += 2
@@ -421,7 +445,7 @@ class CGenerator(CGeneratorBase):
             if dim_decl is not None:
                 return self.generate_array_ref(dim_decl, n.name.name, indices, n.coord)
 
-        return CGeneratorBase.visit_ArrayRef(self, c_ast.ArrayRef(
+        return self.generator_base_class.visit_ArrayRef(self, c_ast.ArrayRef(
             n.name, n.subscript, n.coord))
 
     def visit_FuncCall(self, n):
@@ -512,15 +536,24 @@ class CGenerator(CGeneratorBase):
 
                 if result is None:
                     raise SyntaxError("no value available for '%s' at %s" % (
-                        CGeneratorBase.visit_FuncCall(self, n), n.coord))
+                        self.generator_base_class.visit_FuncCall(self, n), n.coord))
 
                 return self.visit(result)
 
-        return CGeneratorBase.visit_FuncCall(self, n)
+        return self.generator_base_class.visit_FuncCall(self, n)
 
 
 
 
+class GNUCGenerator(CndGeneratorMixin, GNUCGeneratorBase):
+    generator_base_class = GNUCGeneratorBase
+    def __init__(self):
+        GNUCGeneratorBase.__init__(self)
+        CndGeneratorMixin.__init__(self)
+
+# }}}
+
+# {{{ run helpers
 
 class ExecError(RuntimeError):
     pass
@@ -681,14 +714,14 @@ def run_standalone():
 
     #print "preprocessed source in ", write_temp_file(src, ".c")
 
-    parser = CNdArrayParser()
+    parser = GNUCndParser()
     ast = parser.parse(src, filename=in_file,
             initial_type_symbols=INITIAL_TYPE_SYMBOLS)
     if options.ast:
         ast.show()
         return
 
-    generator = CGenerator()
+    generator = GNUCGenerator()
 
     if options.output is not None:
         outf = open(options.output, "wt")
@@ -737,11 +770,11 @@ def run_as_compiler_frontend():
 
                 #print "preprocessed source in ", write_temp_file(src, ".c")
 
-                parser = CNdArrayParser()
+                parser = GNUCndParser()
                 ast = parser.parse(src, filename=arg,
                         initial_type_symbols=INITIAL_TYPE_SYMBOLS)
 
-                generator = CGenerator()
+                generator = GNUCGenerator()
 
                 gen_src_file = write_temp_file(generator.visit(ast), ".c")
                 new_argv.append(gen_src_file)
@@ -775,3 +808,7 @@ def run_as_compiler_frontend():
     finally:
         for tempf in temp_files:
             os.unlink(tempf)
+
+# }}}
+
+# vim: fdm=marker

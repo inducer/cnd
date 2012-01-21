@@ -17,6 +17,7 @@ except ImportError:
     sys.path.extend([
             dist_dir,
             join(dist_dir, "pycparser-shipped"),
+            join(dist_dir, "pycparserext-shipped"),
             join(dist_dir, "ply-shipped"),
             ])
 

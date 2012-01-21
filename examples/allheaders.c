@@ -41,3 +41,8 @@
 #include <termios.h>
 #include <unistd.h>
 #include <utime.h>
+
+int main()
+{
+  return 0;
+}
