@@ -8,3 +8,4 @@ include ply-shipped/ply/*py
 include pycparser-shipped/LICENSE
 include pycparser-shipped/README.html
 include pycparser-shipped/pycparser/*py
+include pycparserext-shipped/pycparserext/*py
