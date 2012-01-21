@@ -29,7 +29,7 @@ def main():
               ],
           zip_safe=False,
 
-          install_requires=[ "pycparser", "ply"],
+          install_requires=[ "pycparser", "pycparserext", "ply"],
 
           scripts=["bin/cnd", "bin/cndcc"],
           packages=["cnd"]
