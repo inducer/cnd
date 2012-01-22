@@ -197,18 +197,6 @@ class DimensionDecl(c_ast.Node):
 # {{{ parsers
 
 class CndParserBase(object):
-    def parse(self, text, filename='', debuglevel=0,
-            initial_type_symbols=set()):
-        self.clex.filename = filename
-        self.clex.reset_lineno()
-
-        # _scope_stack[-1] is the current (topmost) scope.
-
-        self._scope_stack = [set(initial_type_symbols)]
-        if not text or text.isspace():
-            return c_ast.FileAST([])
-        else:
-            return self.cparser.parse(text, lexer=self.clex, debug=debuglevel)
 
     # {{{ hack around [()]
 
@@ -321,38 +309,12 @@ class CndParserBase(object):
         """
         p[0] = (p[1], p[3], p[5], p[7])
 
-OPT_RULES = [
-    'abstract_declarator',
-    'assignment_expression',
-    'declaration_list',
-    'declaration_specifiers',
-    'designation',
-    'expression',
-    'identifier_list',
-    'init_declarator_list',
-    'parameter_type_list',
-    'specifier_qualifier_list',
-    'block_item_list',
-    'type_qualifier_list',
-    'struct_declarator_list'
-]
 
 class GNUCndParser(CndParserBase, GNUCParserBase):
-    def __init__(self, yacc_debug=False):
-        self.clex = GNUCndLexer(
-            error_func=self._lex_error_func,
-            type_lookup_func=self._lex_type_lookup_func)
+    lexer_class = GNUCndLexer
 
-        self.clex.build()
-        self.tokens = self.clex.tokens
-
-        for rule in OPT_RULES:
-            self._create_opt_rule(rule)
-
-        self.cparser = ply.yacc.yacc(
-            module=self,
-            start='translation_unit',
-            debug=yacc_debug, write_tables=False)
+class OpenCLCndParser(CndParserBase, OpenCLCParserBase):
+    lexer_class = OpenCLCndLexer
 
 # }}}
 
@@ -367,6 +329,7 @@ class SyntaxError(RuntimeError):
 class CndGeneratorMixin(object):
     def __init__(self):
         self.dim_decl_stack = [{}]
+        self.generate_line_directives = True
 
     def visit_DimensionDecl(self, n):
         decl_stack = self.dim_decl_stack[-1]
@@ -384,8 +347,11 @@ class CndGeneratorMixin(object):
         dim_decls = self.dim_decl_stack[-1].copy()
         self.dim_decl_stack.append(dim_decls)
         for stmt in n.block_items:
-            s += "# %d \"%s\"\n%s" % (
-                stmt.coord.line, stmt.coord.file, ''.join(self._generate_stmt(stmt)))
+            if self.generate_line_directives:
+                s += "# %d \"%s\"\n" % (
+                    stmt.coord.line, stmt.coord.file)
+
+            s += ''.join(self._generate_stmt(stmt))
 
         self.dim_decl_stack.pop()
 
@@ -440,7 +406,7 @@ class CndGeneratorMixin(object):
             if isinstance(n.subscript, c_ast.ExprList):
                 indices = n.subscript.exprs
             else:
-                indices = n.subscript
+                indices = (n.subscript,)
 
             if dim_decl is not None:
                 return self.generate_array_ref(dim_decl, n.name.name, indices, n.coord)
@@ -551,6 +517,12 @@ class GNUCGenerator(CndGeneratorMixin, GNUCGeneratorBase):
         GNUCGeneratorBase.__init__(self)
         CndGeneratorMixin.__init__(self)
 
+class OpenCLCGenerator(CndGeneratorMixin, OpenCLCGeneratorBase):
+    generator_base_class = OpenCLCGeneratorBase
+    def __init__(self):
+        OpenCLCGeneratorBase.__init__(self)
+        CndGeneratorMixin.__init__(self)
+
 # }}}
 
 # {{{ run helpers
@@ -656,7 +628,6 @@ def preprocess_source(source, cpp, options):
 
 
 
-INITIAL_TYPE_SYMBOLS = ["__builtin_va_list"]
 PREAMBLE = [
         CND_HELPERS,
         "#define __extension__ /*empty*/", # FIXME
@@ -715,8 +686,7 @@ def run_standalone():
     #print "preprocessed source in ", write_temp_file(src, ".c")
 
     parser = GNUCndParser()
-    ast = parser.parse(src, filename=in_file,
-            initial_type_symbols=INITIAL_TYPE_SYMBOLS)
+    ast = parser.parse(src, filename=in_file)
     if options.ast:
         ast.show()
         return
@@ -771,8 +741,7 @@ def run_as_compiler_frontend():
                 #print "preprocessed source in ", write_temp_file(src, ".c")
 
                 parser = GNUCndParser()
-                ast = parser.parse(src, filename=arg,
-                        initial_type_symbols=INITIAL_TYPE_SYMBOLS)
+                ast = parser.parse(src, filename=arg)
 
                 generator = GNUCGenerator()
 
@@ -808,6 +777,18 @@ def run_as_compiler_frontend():
     finally:
         for tempf in temp_files:
             os.unlink(tempf)
+
+
+
+
+def transform_cl(src, filename=None):
+    parser = OpenCLCndParser()
+    ast = parser.parse(src, filename=filename)
+
+    generator = OpenCLCGenerator()
+    generator.generate_line_directives = False
+    return generator.visit(ast)
+
 
 # }}}
 
