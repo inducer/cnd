@@ -346,12 +346,14 @@ class CndGeneratorMixin(object):
 
         dim_decls = self.dim_decl_stack[-1].copy()
         self.dim_decl_stack.append(dim_decls)
-        for stmt in n.block_items:
-            if self.generate_line_directives:
-                s += "# %d \"%s\"\n" % (
-                    stmt.coord.line, stmt.coord.file)
 
-            s += ''.join(self._generate_stmt(stmt))
+        if n.block_items: # may be None
+            for stmt in n.block_items:
+                if self.generate_line_directives:
+                    s += "# %d \"%s\"\n" % (
+                        stmt.coord.line, stmt.coord.file)
+
+                s += ''.join(self._generate_stmt(stmt))
 
         self.dim_decl_stack.pop()
 
