@@ -30,7 +30,7 @@ void sgemm(float *a, float *b, float *c, int n)
 int DUDE;
 #endif
 
-void print_mpole(complex double *mpole, int n)
+void print_mpole(complex double *restrict mpole, int n)
 {
   dimension "fortran" mpole[0:n, -n:n];
 
