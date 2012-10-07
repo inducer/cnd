@@ -9,17 +9,17 @@ if sys.version_info < (2, 5):
 import ply
 from pycparserext.ext_c_lexer import (
         add_lexer_keywords,
-        GNUCLexer as GNUCLexerBase,
+        GnuCLexer as GnuCLexerBase,
         OpenCLCLexer as OpenCLCLexerBase,
         )
 from pycparser import c_ast
 from pycparserext.ext_c_parser import (
-        GnuCParser as GNUCParserBase,
+        GnuCParser as GnuCParserBase,
         OpenCLCParser as OpenCLCParserBase,
         )
 
 from pycparserext.ext_c_generator import (
-        GNUCGenerator as GNUCGeneratorBase,
+        GnuCGenerator as GnuCGeneratorBase,
         OpenCLCGenerator as OpenCLCGeneratorBase,
         )
 
@@ -59,7 +59,7 @@ CND_HELPERS = """
 
 # {{{ lexers
 
-class GNUCndLexer(GNUCLexerBase):
+class GnuCndLexer(GnuCLexerBase):
     pass
 
 class OpenCLCndLexer(OpenCLCLexerBase):
@@ -67,7 +67,7 @@ class OpenCLCndLexer(OpenCLCLexerBase):
 
 cnd_keywords = ("dimension",)
 
-add_lexer_keywords(GNUCndLexer, cnd_keywords)
+add_lexer_keywords(GnuCndLexer, cnd_keywords)
 add_lexer_keywords(OpenCLCndLexer, cnd_keywords)
 
 # }}}
@@ -164,7 +164,7 @@ class SingleDim(object):
         self.leading_dim = leading_dim
 
     def __repr__(self):
-        generator = GNUCGenerator()
+        generator = GnuCGenerator()
 
         def stringify(x):
             if x is None:
@@ -310,8 +310,8 @@ class CndParserBase(object):
         p[0] = (p[1], p[3], p[5], p[7])
 
 
-class GNUCndParser(CndParserBase, GNUCParserBase):
-    lexer_class = GNUCndLexer
+class GnuCndParser(CndParserBase, GnuCParserBase):
+    lexer_class = GnuCndLexer
 
 class OpenCLCndParser(CndParserBase, OpenCLCParserBase):
     lexer_class = OpenCLCndLexer
@@ -513,10 +513,10 @@ class CndGeneratorMixin(object):
 
 
 
-class GNUCGenerator(CndGeneratorMixin, GNUCGeneratorBase):
-    generator_base_class = GNUCGeneratorBase
+class GnuCGenerator(CndGeneratorMixin, GnuCGeneratorBase):
+    generator_base_class = GnuCGeneratorBase
     def __init__(self):
-        GNUCGeneratorBase.__init__(self)
+        GnuCGeneratorBase.__init__(self)
         CndGeneratorMixin.__init__(self)
 
 class OpenCLCGenerator(CndGeneratorMixin, OpenCLCGeneratorBase):
@@ -687,13 +687,13 @@ def run_standalone():
 
     #print "preprocessed source in ", write_temp_file(src, ".c")
 
-    parser = GNUCndParser()
+    parser = GnuCndParser()
     ast = parser.parse(src, filename=in_file)
     if options.ast:
         ast.show()
         return
 
-    generator = GNUCGenerator()
+    generator = GnuCGenerator()
 
     if options.output is not None:
         outf = open(options.output, "wt")
@@ -742,10 +742,10 @@ def run_as_compiler_frontend():
 
                 #print "preprocessed source in ", write_temp_file(src, ".c")
 
-                parser = GNUCndParser()
+                parser = GnuCndParser()
                 ast = parser.parse(src, filename=arg)
 
-                generator = GNUCGenerator()
+                generator = GnuCGenerator()
 
                 gen_src_file = write_temp_file(generator.visit(ast), ".c")
                 new_argv.append(gen_src_file)
