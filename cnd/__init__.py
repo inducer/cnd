@@ -244,9 +244,9 @@ class CndParserBase(object):
         if layout is not None:
             layout = layout[1:-1]
 
-        if layout is None or layout == "c":
+        if layout is None:
             layout = "c"
-        elif layout == "fortran":
+        elif layout in ["c" , "col-major", "row-major", "fortran"]:
             pass
         else:
             raise RuntimeError("invalid  array layout '%s'" % layout)
@@ -369,12 +369,11 @@ class CndGeneratorMixin(object):
 
         axis_numbers = range(len(indices))
 
-        if dim_decl.layout == "c":
-            dim_it = zip(indices, dim_decl.dims, axis_numbers)
-        elif dim_decl.layout == "fortran":
+        is_col_major = dim_decl.layout in ["fortran", "col-major"]
+        if is_col_major:
             dim_it = zip(indices[::-1], dim_decl.dims[::-1], axis_numbers[::-1])
         else:
-            raise SyntaxError("invalid  array layout '%s'" % dim_decl.layout)
+            dim_it = zip(indices, dim_decl.dims, axis_numbers)
 
         access = None
         for idx, dim, axis in dim_it:
@@ -487,7 +486,7 @@ class CndGeneratorMixin(object):
                 elif name == "uboundof":
                     result = dim_decl.dims[axis].end
                 elif name == "puboundof":
-                    if dim_decl.layout == "c":
+                    if dim_decl.layout in ["c", "row-major", "col-major"]:
                         result = dim_decl.dims[axis].end
                     elif dim_decl.layout == "fortran":
                         result = c_ast.BinaryOp("+",

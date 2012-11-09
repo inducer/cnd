@@ -56,9 +56,15 @@ simply acts as a multiplier on the index.  No plausibility checking whatsoever
 is done on the dimension declaration.  You may shoot yourself in the foot any way
 you like.
 
-If the layout is given as `"c"` or not given at all, the following things are true:
+If the layout is given as `"c"` or `"row-major"` or not given at all, the following things are true:
 
 * The array is laid out in row-major order.
+* The `end` index is taken to be exclusive, if specified.
+* The `start` index defaults to 0.
+
+If the layout is given as `"col-major"`, the following things are true:
+
+* The array is laid out in column-major order.
 * The `end` index is taken to be exclusive, if specified.
 * The `start` index defaults to 0.
 
