@@ -1,6 +1,6 @@
 include examples/*c
 
-include distribute_setup.py
+include ez_setup.py
 include README.rst
 
 include ply-shipped/README
