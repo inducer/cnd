@@ -3,7 +3,7 @@
 	url = git://github.com/inducer/ply-git
 [submodule "pycparserext-shipped"]
 	path = pycparserext-shipped
-	url = http://github.com/inducer/pycparserext.git
+	url = git://github.com/inducer/pycparserext.git
 [submodule "pycparser-shipped"]
 	path = pycparser-shipped
-	url = http://github.com/inducer/pycparser.git
+	url = git://github.com/eliben/pycparser.git
