@@ -1,10 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: latin1 -*-
 
-def main():
-    import ez_setup
-    ez_setup.use_setuptools()
 
+def main():
     from setuptools import setup
 
     ver_dic = {}
@@ -22,21 +20,15 @@ def main():
           long_description=open("README.rst", "rt").read(),
           author=u"Andreas Kloeckner",
           author_email="inform@tiker.net",
-          license = "MIT",
+          license="MIT",
           url="http://mathema.tician.de/software/cnd",
-          classifiers=[
-
-              ],
           zip_safe=False,
 
-          install_requires=[ "pycparser", "pycparserext", "ply"],
+          install_requires=["pycparser", "pycparserext", "ply"],
 
           scripts=["bin/cnd", "bin/cndcc"],
           packages=["cnd"]
-         )
+          )
 
 if __name__ == "__main__":
-    import ez_setup
-    ez_setup.use_setuptools()
-
     main()
