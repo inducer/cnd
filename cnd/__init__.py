@@ -6,7 +6,7 @@ if sys.version_info < (2, 5):
             "Try running 'python2.5 cndcc <arguments>' or "
             "'python2.6 cndcc <arguments>'.")
 
-import ply
+import pycparser.ply  # noqa
 from pycparserext.ext_c_lexer import (
         add_lexer_keywords,
         GnuCLexer as GnuCLexerBase,
@@ -26,9 +26,6 @@ from pycparserext.ext_c_generator import (
 import sys
 
 
-
-
-
 import cnd.version
 
 CND_HELPERS = """
@@ -43,7 +40,8 @@ CND_HELPERS = """
   type name[nitemsof(name)];
 
 #define CND_FOR_AXIS(it_var, name, ax_index) \
-  for (long it_var = lboundof(name, ax_index); it_var < puboundof(name, ax_index); ++it_var)
+  for (long it_var = lboundof(name, ax_index); \
+            it_var < puboundof(name, ax_index); ++it_var)
 
 #define CND_VERSION_MAJOR %(major_ver)d
 #define CND_VERSION_MINOR %(minor_ver)d
@@ -55,12 +53,11 @@ CND_HELPERS = """
         )
 
 
-
-
 # {{{ lexers
 
 class GnuCndLexer(GnuCLexerBase):
     pass
+
 
 class OpenCLCndLexer(OpenCLCLexerBase):
     pass
@@ -71,6 +68,7 @@ add_lexer_keywords(GnuCndLexer, cnd_keywords)
 add_lexer_keywords(OpenCLCndLexer, cnd_keywords)
 
 # }}}
+
 
 # {{{ parenthesis insertion
 
@@ -135,9 +133,6 @@ def insert_parens_in_brackets(filename, s):
 # }}}
 
 
-
-
-
 # {{{ AST helper objects
 
 class SingleDim(object):
@@ -178,6 +173,7 @@ class SingleDim(object):
                 stringify(self.stride),
                 stringify(self.leading_dim))
 
+
 class DimensionDecl(c_ast.Node):
     def __init__(self, name, layout, dims, coord):
         self.name = name
@@ -193,6 +189,7 @@ class DimensionDecl(c_ast.Node):
     attr_names = ("name", "layout", "dims")
 
 # }}}
+
 
 # {{{ parsers
 
@@ -246,7 +243,7 @@ class CndParserBase(object):
 
         if layout is None:
             layout = "c"
-        elif layout in ["c" , "col-major", "row-major", "fortran"]:
+        elif layout in ["c", "col-major", "row-major", "fortran"]:
             pass
         else:
             raise RuntimeError("invalid  array layout '%s'" % layout)
@@ -313,16 +310,16 @@ class CndParserBase(object):
 class GnuCndParser(CndParserBase, GnuCParserBase):
     lexer_class = GnuCndLexer
 
+
 class OpenCLCndParser(CndParserBase, OpenCLCParserBase):
     lexer_class = OpenCLCndLexer
 
 # }}}
 
 
-
-
 class SyntaxError(RuntimeError):
     pass
+
 
 # {{{ generators
 
@@ -347,7 +344,7 @@ class CndGeneratorMixin(object):
         dim_decls = self.dim_decl_stack[-1].copy()
         self.dim_decl_stack.append(dim_decls)
 
-        if n.block_items: # may be None
+        if n.block_items:  # may be None
             for stmt in n.block_items:
                 if self.generate_line_directives:
                     s += "# %d \"%s\"\n" % (
@@ -410,7 +407,8 @@ class CndGeneratorMixin(object):
                 indices = (n.subscript,)
 
             if dim_decl is not None:
-                return self.generate_array_ref(dim_decl, n.name.name, indices, n.coord)
+                return self.generate_array_ref(
+                        dim_decl, n.name.name, indices, n.coord)
 
         return self.generator_base_class.visit_ArrayRef(self, c_ast.ArrayRef(
             n.name, n.subscript, n.coord))
@@ -492,7 +490,8 @@ class CndGeneratorMixin(object):
                         result = c_ast.BinaryOp("+",
                                 dim_decl.dims[axis].end, c_ast.Constant("int", 1))
                     else:
-                        raise SyntaxError("invalid array layout '%s'" % dim_decl.layout)
+                        raise SyntaxError(
+                                "invalid array layout '%s'" % dim_decl.layout)
 
                 elif name == "ldimof":
                     result = dim_decl.dims[axis].leading_dim
@@ -510,26 +509,29 @@ class CndGeneratorMixin(object):
         return self.generator_base_class.visit_FuncCall(self, n)
 
 
-
-
 class GnuCGenerator(CndGeneratorMixin, GnuCGeneratorBase):
     generator_base_class = GnuCGeneratorBase
+
     def __init__(self):
         GnuCGeneratorBase.__init__(self)
         CndGeneratorMixin.__init__(self)
 
+
 class OpenCLCGenerator(CndGeneratorMixin, OpenCLCGeneratorBase):
     generator_base_class = OpenCLCGeneratorBase
+
     def __init__(self):
         OpenCLCGeneratorBase.__init__(self)
         CndGeneratorMixin.__init__(self)
 
 # }}}
 
+
 # {{{ run helpers
 
 class ExecError(RuntimeError):
     pass
+
 
 def call_capture_output(cmdline, cwd=None, error_on_nonzero=True):
     """
@@ -543,11 +545,9 @@ def call_capture_output(cmdline, cwd=None, error_on_nonzero=True):
             raise ExecError("status %d invoking '%s': %s"
                     % (popen.returncode, " ".join(cmdline), stderr_data))
         return popen.returncode, stdout_data, stderr_data
-    except OSError, e:
+    except OSError as e:
         raise ExecError("error invoking '%s': %s"
-                % ( " ".join(cmdline), e))
-
-
+                % (" ".join(cmdline), e))
 
 
 class CompileError(RuntimeError):
@@ -572,8 +572,6 @@ class CompileError(RuntimeError):
         return result
 
 
-
-
 def write_temp_file(contents, suffix):
     from tempfile import mkstemp
     handle, path = mkstemp(suffix='.c')
@@ -590,6 +588,7 @@ def write_temp_file(contents, suffix):
         os.close(handle)
 
     return path
+
 
 def preprocess_source(source, cpp, options):
     import os
@@ -609,8 +608,6 @@ def preprocess_source(source, cpp, options):
     from tempfile import mkstemp
     handle, source_path = mkstemp(suffix='.c')
 
-    import os
-
     source_path = write_temp_file(source, ".c")
     try:
         cmdline = cpp + options + [source_path]
@@ -627,15 +624,10 @@ def preprocess_source(source, cpp, options):
     return stdout
 
 
-
-
 PREAMBLE = [
         CND_HELPERS,
-        "#define __extension__ /*empty*/", # FIXME
+        "#define __extension__ /*empty*/",  # FIXME
         ]
-
-
-
 
 
 def run_standalone():
@@ -669,7 +661,7 @@ def run_standalone():
         extra_lines = PREAMBLE + [
             "# 1 \"%s\"" % in_file,
             ]
-        src =  "\n".join(extra_lines) + "\n" + src
+        src = "\n".join(extra_lines) + "\n" + src
 
     if options.preprocess:
         cpp_options = []
@@ -706,8 +698,6 @@ def run_standalone():
             outf.close()
 
 
-
-
 def run_as_compiler_frontend():
     import sys
     import os
@@ -733,7 +723,7 @@ def run_as_compiler_frontend():
                 extra_lines = PREAMBLE + [
                     "# 1 \"%s\"" % arg,
                     ]
-                src =  "\n".join(extra_lines) + "\n" + src
+                src = "\n".join(extra_lines) + "\n" + src
 
                 #cpp_options.append("-P")
 
@@ -750,7 +740,9 @@ def run_as_compiler_frontend():
                 new_argv.append(gen_src_file)
                 temp_files.append(gen_src_file)
 
-            elif arg.startswith("-I") or arg.startswith("-D") or arg.startswith("-std="):
+            elif (arg.startswith("-I")
+                    or arg.startswith("-D")
+                    or arg.startswith("-std=")):
                 cpp_options.append(arg)
                 new_argv.append(arg)
             elif arg == "-c":
@@ -778,8 +770,6 @@ def run_as_compiler_frontend():
     finally:
         for tempf in temp_files:
             os.unlink(tempf)
-
-
 
 
 def transform_cl(src, filename=None):

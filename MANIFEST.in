@@ -3,9 +3,8 @@ include examples/*c
 include ez_setup.py
 include README.rst
 
-include ply-shipped/README
-include ply-shipped/ply/*py
 include pycparser-shipped/LICENSE
 include pycparser-shipped/README.html
 include pycparser-shipped/pycparser/*py
+include pycparser-shipped/pycparser/ply/*py
 include pycparserext-shipped/pycparserext/*py

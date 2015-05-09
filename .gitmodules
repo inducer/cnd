@@ -1,6 +1,3 @@
-[submodule "ply-shipped"]
-	path = ply-shipped
-	url = git://github.com/dabeaz/ply
 [submodule "pycparserext-shipped"]
 	path = pycparserext-shipped
 	url = git://github.com/inducer/pycparserext.git
