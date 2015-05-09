@@ -1,6 +1,10 @@
 from __future__ import division
+from __future__ import absolute_import
+from __future__ import print_function
 
 import sys
+from six.moves import range
+from six.moves import zip
 if sys.version_info < (2, 5):
     raise RuntimeError("CnD requires Python 2.5 or newer. "
             "Try running 'python2.5 cndcc <arguments>' or "
@@ -364,13 +368,13 @@ class CndGeneratorMixin(object):
                     "array reference to '%s' at %s (given: %d, needed: %d)"
                     % (name, coord, len(indices), len(dim_decl.dims)))
 
-        axis_numbers = range(len(indices))
+        axis_numbers = list(range(len(indices)))
 
         is_col_major = dim_decl.layout in ["fortran", "col-major"]
         if is_col_major:
-            dim_it = zip(indices[::-1], dim_decl.dims[::-1], axis_numbers[::-1])
+            dim_it = list(zip(indices[::-1], dim_decl.dims[::-1], axis_numbers[::-1]))
         else:
-            dim_it = zip(indices, dim_decl.dims, axis_numbers)
+            dim_it = list(zip(indices, dim_decl.dims, axis_numbers))
 
         access = None
         for idx, dim, axis in dim_it:
@@ -562,8 +566,8 @@ class CompileError(RuntimeError):
         if self.command_line:
             try:
                 result += "\n[command: %s]" % (" ".join(self.command_line))
-            except Exception, e:
-                print e
+            except Exception as e:
+                print(e)
         if self.stdout:
             result += "\n[stdout:\n%s]" % self.stdout
         if self.stderr:
@@ -761,8 +765,8 @@ def run_as_compiler_frontend():
         try:
             retcode = call([compiler] + new_argv)
         except:
-            print>>sys.stderr, "%s: compiler execution failed. (Note: compiler " \
-                    "command must be the first argument--used '%s')" % (sys.argv[0], compiler)
+            print("%s: compiler execution failed. (Note: compiler " \
+                    "command must be the first argument--used '%s')" % (sys.argv[0], compiler), file=sys.stderr)
             sys.exit(1)
         else:
             sys.exit(retcode)
