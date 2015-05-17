@@ -10,7 +10,11 @@ if sys.version_info < (2, 5):
             "Try running 'python2.5 cndcc <arguments>' or "
             "'python2.6 cndcc <arguments>'.")
 
-import pycparser.ply  # noqa
+try:
+    import pycparser.ply as ply  # noqa
+except ImportError:
+    import ply  # noqa
+
 from pycparserext.ext_c_lexer import (
         add_lexer_keywords,
         GnuCLexer as GnuCLexerBase,
